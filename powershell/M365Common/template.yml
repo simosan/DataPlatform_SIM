@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: aws-lambda-powershell-m365common
+
+Parameters:
+  LayerName:
+    Type: String
+    Default: "SimPwshRuntimeLayer"
+  LayerVersion:
+    Type: Number
+    Default: 1 
+
+Resources:
+  ##########################################################################
+  # IAM ロール（Lambda用）                                                  #
+  ##########################################################################
+  LambdaM365CommonRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: M365GetUserSSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - kms:Decrypt
+                Resource:
+                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
+
+  LambdaAWSCommonRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LambdaCommonSSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - kms:Decrypt
+                Resource:
+                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
+        - PolicyName: LambdaCommonS3Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - S3:List*
+                  - S3:Get*
+                  - S3:Put*
+                  - S3:Delete*
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh/*
+
+  ##########################################################################
+  # Lambda関数（M365認証関数）                                       
+  ##########################################################################
+  M365Auth:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: M365Auth
+      PackageType: Zip
+      Handler: M365Auth.ps1::M365Auth
+      Runtime: provided.al2
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaM365CommonRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE
+
+  ##########################################################################
+  # Lambda関数（S3ファイル出力）                                       
+  ##########################################################################
+  M365CollectS3Export:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: M365CollectS3Export
+      PackageType: Zip
+      Handler: M365CollectS3Export.ps1::M365CollectS3Export
+      Runtime: provided.al2
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaAWSCommonRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE

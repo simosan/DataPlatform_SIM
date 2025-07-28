@@ -1,0 +1,92 @@
+try {
+    Import-Module AWS.Tools.S3 -ErrorAction Stop
+    Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop
+
+} catch {
+    Write-Host "[Func-Error]-[S3Export]-[Import-Module] $($_.Exception.Message)"
+    Write-Host "詳細Error $($_.Exception | Out-String)"
+    throw
+}
+
+function M365CollectS3Export {
+    param(
+        [Parameter(Mandatory = $true)]
+        $LambdaInput,
+
+        [Parameter(Mandatory = $false)]
+        $LambdaContext
+    )
+
+    $body = $LambdaInput.body
+    $group          = $LambdaInput.group
+    $targetdataname = $LambdaInput.targetdataname
+
+    # $body がリスト型（配列）であることをチェック
+    if ($body -isnot [System.Collections.IEnumerable] -or $body -is [string]) {
+        Write-Host "[FuncError]-[S3Export]-[InvalidInput] bodyが配列型ではありません" 
+        throw "[FuncError]-[S3Export]-[InvalidInput] bodyが配列型ではありません"
+    }
+   
+    # $group が 'group' に続く数値の形式であることをチェック
+    if ($group -notmatch '^group\d+$') {
+        Write-Host "[Func-Error]-[S3Export]-[InvalidInput] groupの形式が不正です。'group<number>'の形式で指定してください。"
+        throw "[Func-Error]-[S3Export]-[InvalidInput] groupの形式が不正です。'group<number>'の形式で指定してください。"
+    }
+   
+    # $targetdataname が空やnullでないことをチェック
+    if ([string]::IsNullOrWhiteSpace($targetdataname)) {
+        throw "[Func-Error]-[S3Export]-[InvalidInput] targetdatanameがnullまたは空です。"
+    }
+
+    ## 基準日日付をS3から取得。
+    # 一時ファイル名（Lambdaの/tmpディレクトリに保存。他関数との競合回避のためGUID付加）
+    $bucketname = (Get-SSMParameter -Name "/m365/common/s3bucket").Value
+    try {
+        $tmpname = $([guid]::NewGuid().ToString()) + "_basedatetime.csv"
+        Read-S3Object -BucketName $bucketname -Key "basedatetime/basedatetime.csv" -File "/tmp/$tmpname"
+        $psdttm = Import-Csv -Path "/tmp/$tmpname"
+    } catch {
+        Write-Host "[Func-Error]-[S3Export]-[Read-basedatetime.csv failed] $_"
+        Write-Host "ErrorDetails: $($_.Exception | Out-String)"
+        throw "[Func-Error]-[S3Export]-[Read-basedatetime.csv failed] $_"
+    } finally {
+        Remove-Item -Path "/tmp/$tmpname" -Force -ErrorAction SilentlyContinue
+    }
+    
+    # ファイル格納先のS3パーティション作成 - m365-dwh/groupx/collect/$targetdataname/year=yyyy/month=MM/day=dd/
+    # パーティションキーはそれぞれの階層で作成すること！
+    # すでに存在したとしても、都度作成で問題なし（冪等性）
+    $twotier = $group + '/'
+    $threetier = (Get-SSMParameter -Name "/m365/common/pipelinecol").Value
+    $fourtier = $targetdataname + '/'
+    $fivetier = 'year=' + $psdttm.base.split('-')[0] + '/'
+    $sixtier = 'month=' + $psdttm.base.split('-')[1] + '/'
+    $seventier = 'day=' + $psdttm.base.split('-')[2] + '/'
+
+    # S3キーフルパス
+    $writekeys = $twotier + $threetier + $fourtier + $fivetier + $sixtier + $seventier
+    # 一時ファイル名（Lambda用なら /tmp）
+    $tmpJsonPath = "/tmp/$targetdataname.json"
+    # データ作成元のjsonデータに項目を追加。basedatetime.csvの内容を追加.
+    $wrapObject = [PSCustomObject]@{
+        m365_base = $psdttm.base
+        m365_from = $psdttm.from
+        m365_to   = $psdttm.to
+        acquired_date = (Get-Date -Format "yyyy-MM-dd")
+        data      = $body
+    }
+    # Jsonファイルで/tmpに保存
+    $wrapObject | ConvertTo-Json -Depth 10 | Out-File -FilePath $tmpJsonPath -Encoding UTF8
+    # S3にファイルをアップロード
+    try {
+        Write-S3Object -BucketName $bucketname -Key "$writekeys$targetdataname.json" -File $tmpJsonPath 
+    } catch {
+        Write-Host "[Func-Error]-[S3Export]-[Write-S3Object failed] $_"
+        Write-Host "ErrorDetails: $($_.Exception | Out-String)"
+        throw "[Func-Error]-[S3Export]-[Write-S3Object failed] $_"
+    } finally {
+        Remove-Item -Path $tmpJsonPath -Force -ErrorAction SilentlyContinue
+    }
+
+    return @{ status = "success" } | ConvertTo-Json -Compress
+}

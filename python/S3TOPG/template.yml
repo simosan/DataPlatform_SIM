@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: aws-lambda-python-s3convtopg-group1-runtime
+
+Parameters:
+  LayerName:
+    Type: String
+    Default: "SimPythonRuntimeLayer"
+  LayerVersion:
+    Type: Number
+    Default: 1 
+  PrivateSubnet1:
+   Type: String
+   Default: 'subnet-005a411443ba6b42e'
+  PrivateSubnet2:
+   Type: String
+   Default: 'subnet-0a987f1b4b3a69d8a'
+  LambdaSecurityGroup1:
+   Type: String
+   Default: 'sg-005c6c79bdcaf1d4a'
+  LambdaSecurityGroup2:
+   Type: String
+   Default: 'sg-05571f5f063a84392'
+
+Resources:
+  ##########################################################################
+  # IAM ロール（Lambda用）                                                  #
+  ##########################################################################
+  LambdaS3ConvToPGRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: S3ConvToPGSSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource:
+                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
+              - Effect: Allow
+                Action:
+                  - S3:List*
+                  - S3:Get*
+                  - S3:Put*
+                  - S3:Delete*
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh/*
+              - Effect: Allow
+                Action:
+                  - S3:ListBucket
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh
+
+  ##########################################################################
+  # Lambda関数（s3convtopg）                                       
+  ##########################################################################
+  M365ConvToPgFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: s3convtopg
+      PackageType: Zip
+      Handler: s3convtopg.s3convtopg
+      Runtime: python3.13
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaS3ConvToPGRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup1
+          - !Ref LambdaSecurityGroup2
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2

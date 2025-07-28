@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: aws-lambda-python-convuser-runtime
+
+Parameters:
+  LayerName:
+    Type: String
+    Default: "SimPythonRuntimeLayer"
+  LayerVersion:
+    Type: Number
+    Default: 1 
+
+Resources:
+  ##########################################################################
+  # IAM ロール（Lambda用）                                                  #
+  ##########################################################################
+  LambdaM365ConvUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: M365ConvUserSSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource:
+                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
+              - Effect: Allow
+                Action: 
+                  - lambda:InvokeFunction
+                Resource: 
+                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365convs3export
+                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365cols3import
+
+  ##########################################################################
+  # Lambda関数（M365ユーザ情報変換関数）                                       
+  ##########################################################################
+  M365ConvUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: m365convuser
+      PackageType: Zip
+      Handler: m365convuser.m365convuser
+      Runtime: python3.13
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaM365ConvUserRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE

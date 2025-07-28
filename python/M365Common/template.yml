@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: aws-lambda-python-commoncol-runtime
+
+Parameters:
+  LayerName:
+    Type: String
+    Default: "SimPythonRuntimeLayer"
+  LayerVersion:
+    Type: Number
+    Default: 1 
+
+Resources:
+  ##########################################################################
+  # IAM ロール（Lambda用）                                                  #
+  ##########################################################################
+  LambdaM365CommonColRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: M365ConvUserSSMPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource:
+                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
+        - PolicyName: LambdaCommonS3Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - S3:List*
+                  - S3:Get*
+                  - S3:Put*
+                  - S3:Delete*
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh/*
+              - Effect: Allow
+                Action:
+                  - S3:ListBucket
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh
+
+  ##########################################################################
+  # Lambda関数（m365cols3import）                                    
+  ##########################################################################
+  M365ColS3ImportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: m365cols3import
+      PackageType: Zip
+      Handler: m365cols3import.m365cols3import
+      Runtime: python3.13
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaM365CommonColRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE
+
+  ##########################################################################
+  # Lambda関数（m365convs3export）                                    
+  ##########################################################################
+  M365ConvS3ExportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: m365convs3export
+      PackageType: Zip
+      Handler: m365convs3export.m365convs3export
+      Runtime: python3.13
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaM365CommonColRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE
+
+  ##########################################################################
+  # Lambda関数（basedatetimeupdate）                                    
+  ##########################################################################
+  BasedatetimeUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: basedatetimeupdate
+      PackageType: Zip
+      Handler: basedatetimeupdate.basedatetimeupdate
+      Runtime: python3.13
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaM365CommonColRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE

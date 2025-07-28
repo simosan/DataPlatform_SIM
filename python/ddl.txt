@@ -1,0 +1,22 @@
+create table m365.m365getgroup (
+    id UUID not null,
+    description TEXT not null,
+    display_name TEXT not null,
+    security_identifier TEXT not null,
+    from_datetime TIMESTAMP not null,
+    to_datetime TIMESTAMP not null,
+    base_date DATE not null,
+    acquired_date DATE not null
+)
+
+create table m365.m365getuser (
+ id UUID not null,
+ userPrincipalName text not null,
+ surname text not null,
+ givenName text not null,
+ displayName text not null,
+ from_datetime TIMESTAMP not null,
+ to_datetime TIMESTAMP not null,
+ base_date DATE not null,
+ acquired_date DATE not null
+);

@@ -1,0 +1,10 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "sam-psappfunc-m365common-test"
+resolve_s3 = true
+s3_prefix = "sam-psappfunc-m365-common-test"
+region = "ap-northeast-1"
+profile = 
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
