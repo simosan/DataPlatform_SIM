@@ -31,6 +31,7 @@ EntraID（フリーテナント）からユーザ・グループ情報を取得�
 各ライブラリの詳細については、それぞれのプロジェクトページを参照。
 <br/>
 ## 本サンプルの前提条件
+・　レイヤ、lambda関数のデプロイはSAMで実施する<br/>
 ・　EntraID（Freeで問題なし）テナントが利用できること<br/>
 ・　EntraID上でMicrosoft.Graphのアプリ登録が完了していること<br/>
 ・　EntraIDからAPI利用のための項目を取得し、AWS SSMパラメータストアに登録していること<br/>
@@ -205,3 +206,13 @@ sam build --use-container
 ```
 sam deploy
 ```
+<br/>
+
+### lambdaデプロイ
+
+各lambda関数を格納しているディレクトリ単位で、template.yamlとsamlconfig.tomlを設定・格納して、以下コマンドでデプロイする。<br/><br/>
+
+```
+sam deploy --parameter-overrides LayerVersion="レイヤー番号"
+```
+
