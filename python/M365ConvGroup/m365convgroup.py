@@ -44,7 +44,7 @@ def exp_s3_conv_data(bucket_name,
         "data": df.to_dict(orient="records")
     }
     response = lambda_client.invoke(
-        FunctionName='m365convs3export',
+        FunctionName='m365convs3export_parquet',
         InvocationType='RequestResponse',
         Payload=json.dumps(payload)
     )

@@ -41,6 +41,7 @@ Resources:
                   - lambda:InvokeFunction
                 Resource: 
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365convs3export
+                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365convs3export_parquet
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365cols3import
 
   ##########################################################################

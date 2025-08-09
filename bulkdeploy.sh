@@ -1,6 +1,6 @@
 #!/bin/bash
 POWERSHELL_LAYER="LayerVersion=7"
-PYSTHON_LAYER="LayerVersion=6"
+PYSTHON_LAYER="LayerVersion=7"
 PWSH_DEPLOY_CMD="sam deploy --parameter-overrides ${POWERSHELL_LAYER}"
 PY_DEPLOY_CMD="sam deploy --parameter-overrides ${PYSTHON_LAYER}"
 

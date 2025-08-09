@@ -1,7 +1,7 @@
 import psycopg2
 import pandas as pd
 import boto3
-from io import StringIO
+from io import BytesIO
 
 # groupx/convet/直下のテーブル名のみを抽出し配列化
 def s3_target_list(bucket, tier1and2prefix):
@@ -25,18 +25,18 @@ def getconvdata(bucket_name, tier1and2_prefix, table, base_date):
                 + base_date[:4] + "/month=" + base_date[5:7]  \
                 + "/day=" + base_date[8:10] + "/"
     try:
-        csv_file = s3_client.get_object(
+        parquet_file = s3_client.get_object(
             Bucket=bucket_name,
-            Key=targetkey + table + ".csv"
+            Key=targetkey + table + ".parquet"
         )
-        csv_file_body = csv_file['Body'].read().decode('utf-8')
-        df = pd.read_csv(StringIO(csv_file_body)) 
+        parquet_file_body = parquet_file['Body'].read().decode('utf-8')
+        df = pd.read_parquet(BytesIO(parquet_file_body), engine='pyarrow')
     except Exception as e:
             print(f"[func-error]-[s3convtopg]-[getconvdata]-[reading-error] \
-               {table}.csv: {e}")
+               {table}.parquet: {e}")
             return {
                     "statusCode": 500,
-                    "message": f"s3convtopg-getconvdata-{table}.csv Error: {str(e)}"
+                    "message": f"s3convtopg-getconvdata-{table}.parquet Error: {str(e)}"
             }
 
     return {
