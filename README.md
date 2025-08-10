@@ -25,7 +25,7 @@ EntraID（フリーテナント）からユーザ・グループ情報を取得�
 |--------------|------------------------------------|
 | boto3        | Apache License 2.0                 |
 | pandas       | BSD 3-Clause License               |
-| psycopg2     | LGPL                               |
+| psycopg2     | LGPL v3 or Zope Public License (ZPL)|
 | pytest       | MIT License                        |
 | pyarrow      | Apache License 2.0                 |
 

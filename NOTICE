@@ -68,7 +68,6 @@ THIRD PARTY COMPONENTS
   https://github.com/pytest-dev/pytest/blob/main/AUTHORS
   
 - psycopg2 
-  psycopg2 and the LGPL
   Main authors:
   Federico Di Gregorio <fog@debian.org>
   Daniele Varrazzo <daniele.varrazzo@gmail.com>
@@ -85,22 +84,22 @@ THIRD PARTY COMPONENTS
     Jan Urbański (re)started the work on asynchronous queries and contributed
     both on that and on other parts of psycopg2.
 
-  - pyarrow
-    This product includes software developed by The Apache Software Foundation (http://www.apache.org/).
+- pyarrow
+  This product includes software developed by The Apache Software Foundation (http://www.apache.org/).
     
-    This product includes the following third-party software:
-    
-    - Apache Arrow / pyarrow
-      License: Apache License 2.0
-      URL: https://arrow.apache.org/
-    
-    The Apache Arrow project is licensed under the Apache License, Version 2.0.
-    You may obtain a copy of the License at
-    
-        http://www.apache.org/licenses/LICENSE-2.0
-    
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
+  This product includes the following third-party software:
+  
+  - Apache Arrow / pyarrow
+    License: Apache License 2.0
+    URL: https://arrow.apache.org/
+  
+  The Apache Arrow project is licensed under the Apache License, Version 2.0.
+  You may obtain a copy of the License at
+  
+      http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
