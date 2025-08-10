@@ -2,6 +2,8 @@ import boto3
 import pandas as pd
 import datetime
 from io import StringIO
+from datetime import datetime, timedelta
+import pytz
 
 def basedatetimeupdate(event, context):
     # 変数設定
@@ -35,12 +37,17 @@ def basedatetimeupdate(event, context):
 
     try:
         # 日付を更新
-        dt = datetime.date.today()
-        basedate = dt - datetime.timedelta(days=1)
+        JST = pytz.timezone('Asia/Tokyo')
+        #dt = datetime.date.today()
+        dt = datetime.now(JST).date()
+        #basedate = dt - datetime.timedelta(days=1)
+        basedate = dt - timedelta(days=1)
         basedate = basedate.strftime("%Y-%m-%d")
         df['base'] = basedate
         df['from'] = basedate + 'T00:00'
         df['to'] = basedate + 'T23:59'
+
+        print(df['base'][0], df['from'][0], df['to'][0])
 
          # S3へ書き戻し
         csv_buffer = StringIO()
