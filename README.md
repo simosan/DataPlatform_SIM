@@ -27,6 +27,7 @@ EntraID（フリーテナント）からユーザ・グループ情報を取得�
 | pandas       | BSD 3-Clause License               |
 | psycopg2     | LGPL                               |
 | pytest       | MIT License                        |
+| pyarrow      | Apache License 2.0                 |
 
 各ライブラリの詳細については、それぞれのプロジェクトページを参照。
 <br/>
