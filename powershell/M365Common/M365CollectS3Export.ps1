@@ -1,3 +1,5 @@
+# 呼び出し元からの引数を受け取り、M365データをS3に出力するLambda関数
+# 単一ファイル、複数ファイル（batch番号をプレフィックスとして付与）での出力をサポート
 try {
     Import-Module AWS.Tools.S3 -ErrorAction Stop
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop

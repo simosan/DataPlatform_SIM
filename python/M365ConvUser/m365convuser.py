@@ -1,3 +1,6 @@
+# S3のcollectからデータを取得し、加工してS3のconvertに出力するLambda関数
+# 出力形式は、parquet形式
+# 対象のデータはEntra IDのユーザ情報
 import boto3
 import json
 import pandas as pd

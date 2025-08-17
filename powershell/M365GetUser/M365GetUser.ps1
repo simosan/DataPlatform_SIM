@@ -1,3 +1,12 @@
+# EntraIDからMicrosoft Graph APIを使用してユーザ情報を取得するLambda関数
+# EntraIDのユーザ情報を取得し、S3に保存する。
+# EntraIDユーザ情報は、大量に存在する可能性があるため、ページネーションを考慮して1000件ずつ取得し、S3に保存する。
+# 事前にAWS Systems Manager Parameter Storeに必要なパラメータを設定しておく必要あり。
+# - /m365/auth/tenantId: EntraID テナント ID
+# - /m365/auth/clientId: EntraID アプリケーションのクライアント ID
+# - /m365/auth/clientSecret: EntraID アプリケーションのクライアントシークレット
+# - /m365/auth/scope: Microsoft Graph APIのスコープ (例: "https://graph.microsoft.com/.default")
+# - /m365/getuser/targeturi: ユーザ情報を取得するためのエンドポイント (例: "https://graph.microsoft.com/v1.0/users")
 try {
     Import-Module AWS.Tools.Lambda -ErrorAction Stop
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop

@@ -1,3 +1,8 @@
+# データ取得の基準日を更新するLambda関数
+# データレイアウトは以下の通り
+# base : 基準日
+# from: データ取得開始日時
+# to : データ取得終了日時
 import boto3
 import pandas as pd
 import datetime

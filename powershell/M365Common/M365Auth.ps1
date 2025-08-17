@@ -1,3 +1,9 @@
+# MicrosoftGraph API 認証用のヘッダーを取得する関数
+# 事前にAWS Systems Manager Parameter Storeに以下のパラメータを設定しておく必要あり。
+# - /m365/auth/tenantId: EntraID テナント ID
+# - /m365/auth/clientId: EntraID アプリケーションのクライアント ID
+# - /m365/auth/clientSecret: EntraID アプリケーションのクライアントシークレット
+# - /m365/auth/scope: Microsoft Graph APIのスコープ (例: "https://graph.microsoft.com/.default")
 try{
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop
 } catch {

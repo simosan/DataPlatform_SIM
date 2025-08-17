@@ -1,4 +1,4 @@
-#### 再実行にかかる冪等性確保のため、指定S3キーを削除する。
+# 再実行にかかる冪等性確保のため、指定S3キーを削除する。
 try {
     Import-Module AWS.Tools.S3 -ErrorAction Stop
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop

@@ -1,3 +1,4 @@
+# S3のconvertディレクトリ配下のデータをPostgresにインサートするLambda関数
 import psycopg2
 import pandas as pd
 import boto3

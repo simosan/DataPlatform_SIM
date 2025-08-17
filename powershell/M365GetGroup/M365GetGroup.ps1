@@ -1,3 +1,11 @@
+# EntraIDからMicrosoft Graph APIを使用してグループ情報を取得するLambda関数
+# EntraIDのグループ情報を取得し、S3に保存する。
+# このスクリプトは、単一のグループ情報を取得することを目的としており、ページネーションは考慮していない。
+# 事前にAWS Systems Manager Parameter Storeに必要なパラメータを設定しておく必要あり。
+# - /m365/auth/tenantId: EntraID テナント ID
+# - /m365/auth/clientId: EntraID アプリケーションのクライアント ID
+# - /m365/auth/clientSecret: EntraID アプリケーションのクライアントシークレット
+# - /m365/auth/scope: Microsoft Graph APIのスコープ (例: "https://graph.microsoft.com/.default")
 try {
     Import-Module AWS.Tools.Lambda -ErrorAction Stop
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop

@@ -1,3 +1,4 @@
+# S3のcollectディレクトリ（生データ取得用）からJSONファイルを取得し、DataFrameに変換する関数
 import boto3
 import pandas as pd
 from io import StringIO

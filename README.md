@@ -80,7 +80,7 @@ powershell
 ```
 <br/>
 （２）レイヤービルド・デプロイ<br/><br/>
-　a）githubからlambda_powershellカスタムランタイム資材をダウンロード（powershellディレクトリ配をを想定）<br/><br/>
+　a）githubからlambda_powershellカスタムランタイム資材をダウンロード（powershellディレクトリへの配置を想定）<br/><br/>
 
 ``` 
 git clone https://github.com/awslabs/aws-lambda-powershell-runtime.git

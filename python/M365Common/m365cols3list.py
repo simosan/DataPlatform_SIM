@@ -1,3 +1,5 @@
+# S3のcollectディレクトリ（生データ取得用）にあるJSONファイルのリストを取得する関数
+# S3キーは削除し、ファイル名のみを配列に格納
 import boto3
 import pandas as pd
 from io import StringIO
