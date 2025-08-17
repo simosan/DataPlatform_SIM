@@ -216,4 +216,6 @@ sam deploy
 ```
 sam deploy --parameter-overrides LayerVersion="レイヤー番号"
 ```
+### アーキテクチャイメージ
+<img src="architecture.png">
 

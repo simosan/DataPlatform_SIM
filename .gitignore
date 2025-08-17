@@ -1,4 +1,5 @@
 .DS_Store
+*pptx
 localstack/
 powershell/settings.txt
 powershell/aws-lambda-powershell-runtime/
