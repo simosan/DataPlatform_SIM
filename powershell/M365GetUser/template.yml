@@ -42,6 +42,8 @@ Resources:
                 Resource: 
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365Auth
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365CollectS3Export
+                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365CollectS3KeyDelete
+
 
   ##########################################################################
   # Lambda関数（M365ユーザ情報取得関数）                                       

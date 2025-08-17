@@ -74,14 +74,14 @@ Resources:
         - arm64
 
   ##########################################################################
-  # Lambda関数（m365convs3export）                                    
+  # Lambda関数（m365cols3list）                                    
   ##########################################################################
-  M365ConvS3ExportFunction:
+  M365cols3listFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: m365convs3export
+      FunctionName: m365cols3list
       PackageType: Zip
-      Handler: m365convs3export.m365convs3export
+      Handler: m365cols3list.m365cols3list
       Runtime: python3.13
       CodeUri: ./
       Layers:
@@ -92,25 +92,6 @@ Resources:
       Architectures:
         - arm64
 
-  ##########################################################################
-  # Lambda関数（m365convs3export_parquet）                                    
-  ##########################################################################
-  M365ConvS3ExportParquetFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: m365convs3export_parquet
-      PackageType: Zip
-      Handler: m365convs3export_parquet.m365convs3export_parquet
-      Runtime: python3.13
-      CodeUri: ./
-      Layers:
-        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
-      Timeout: 900
-      MemorySize: 512
-      Role: !GetAtt LambdaM365CommonColRole.Arn
-      Architectures:
-        - arm64
-  
   ##########################################################################
   # Lambda関数（basedatetimeupdate）                                    
   ##########################################################################

@@ -2,11 +2,11 @@
 # なので、mockではなｋ、out-fileの関数再定義で回避 
 function Out-File { param($InputObject, $FilePath, $Encoding) }
 
-Describe M365CollectS3Export-Tests {
-    Write-Host "M365CollectS3Export-Tests 開始`n"
+Describe M365CollectS3keyDelete-Tests {
+    Write-Host "M365CollectS3KeyDelete-Tests 開始`n"
     BeforeAll {
         
-        . "$PSScriptRoot/M365CollectS3Export.ps1"
+        . "$PSScriptRoot/M365CollectS3KeyDelete.ps1"
 
         # SSMパラメータモック
         Mock -CommandName Get-SSMParameter -MockWith {
@@ -27,13 +27,11 @@ Describe M365CollectS3Export-Tests {
                 to   = "2025-07-25T23:59:59"
             }
         }
-        # S3書き込みのモック
-        Mock -CommandName Write-S3Object -MockWith {}
         # S3ファイルリストのモック
         Mock -CommandName Get-S3Object -MockWith {
             [PSCustomObject]@{
                 ETag         = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                BucketName   = "m365-dwh"
+                BucketName   = "dummy-bucket"
                 Key          = "group1/collect/dummy-pipeline/year=2025/month=07/day=25/dummyfile.json"
                 LastModified = "2017/01/01 00:00:00"
                 Owner        = "Amazon.S3.Model.Owner"
@@ -42,7 +40,7 @@ Describe M365CollectS3Export-Tests {
             }
         }
         # S3キー削除のモック
-        Mock -CommandName Remove-S3Object -MockWith { }
+        Mock -CommandName Remove-S3Object -MockWith {}
         # ファイル削除のモック
         Mock -CommandName Remove-Item -MockWith {}
     }
@@ -51,77 +49,42 @@ Describe M365CollectS3Export-Tests {
     It "正常系：status=successを返す" {
         Write-Host "正常系：status=successを返す" 
         $input1 = @{
-            body = @(
-                @{
-                    id = "11111111-0000-aaaa-bbbb-111111111111"
-                    userPrincipalName = "test@test.com"
-                    surname = "test"
-                    givenName = "test"
-                    displayName = "test test"
-                }
-            )
             group = "group1"
             targetdataname = "M365GetUser"
-            batch = "0"
         }
-        $result = M365CollectS3Export -LambdaInput $input1
+        $result = M365CollectS3KeyDelete -LambdaInput $input1
         $result | Should -Be '{"status":"success"}'
     }
    
-    It "異常系：LambdaInput.bodyが不正な形式" {
-        Write-Host "異常系：LambdaInput.bodyが不正な形式" 
+    It "異常系：LambdaInput.group不正な形式" {
+        Write-Host "異常系：LambdaInput.groupが不正な形式" 
         $input2 = @{
-            body = "invalid-format"
-            group = "group1"
+            group = "groups"
             targetdataname = "m365GetUser"
         }
-        { M365CollectS3Export -LambdaInput $input2 } | 
-            Should -Throw "*bodyが配列型ではありません*"
-    }
-
-    It "異常系：LambdaInput.groupが不正な形式" {
-        Write-Host "異常系：LambdaInput.groupが不正な形式" 
-        $input3 = @{
-            body = @(
-                @{
-                    id = "11111111-0000-aaaa-bbbb-111111111111"
-                    userPrincipalName = "test@test.com"
-                    surname = "test"
-                    givenName = "test"
-                    displayName = "test test"
-                }
-            )
-            group = "groupp"
-            targetdataname = "M365GetUser"
-        }
-        { M365CollectS3Export -LambdaInput $input3 } | 
+        { M365CollectS3KeyDelete -LambdaInput $input2 } | 
             Should -Throw "*groupの形式が不正です。*"
     }
 
-    It "S3取得失敗時に例外を投げる" {
-        Write-Host "異常系：取得失敗時に例外を投げる" 
-        Mock -CommandName Read-S3Object -MockWith { throw "S3Error" }
-        $input4 = @{
-            body = @(
-                @{
-                    id = "11111111-0000-aaaa-bbbb-111111111111"
-                    userPrincipalName = "test@test.com"
-                    surname = "test"
-                    givenName = "test"
-                    displayName = "test test"
-                }
-            )
+    It "異常系：LambdaInput.targetdatanem不正な形式" {
+        Write-Host "異常系：LambdaInput.targetdatanameが不正な形式" 
+        $input2 = @{
             group = "group1"
-            targetdataname = "M365GetUser"
+            targetdataname = ""
         }
-        { M365CollectS3Export -LambdaInput $input4 } | 
-            Should -Throw "*Read-basedatetime.csv failed*"
+        { M365CollectS3KeyDelete -LambdaInput $input2 } | 
+            Should -Throw "*targetdatanameがnullまたは空で*"
     }
 
-    It "S3書き込み失敗時に例外を投げる" {
-        Write-Host "異常系：S3書き込み失敗時に例外を投げる" 
-        Mock -CommandName Write-S3Object -MockWith { throw "WriteError" }
-        $input5 = @{
+    It "Cleanup失敗時に例外を投げる" {
+        Write-Host "異常系：Cleanup失敗時に例外を投げる" 
+        Mock -CommandName Get-S3Object -MockWith {
+            return @(@{ Key = "dummyfile.json" })
+        }
+        Mock -CommandName Remove-S3Object -MockWith {
+            throw "RemoveError"
+        }
+        $input6 = @{
             body = @(
                 @{
                     id = "11111111-0000-aaaa-bbbb-111111111111"
@@ -134,7 +97,7 @@ Describe M365CollectS3Export-Tests {
             group = "group1"
             targetdataname = "M365GetUser"
         }
-        { M365CollectS3Export -LambdaInput $input5 } | 
-            Should -Throw "*Write-S3Object failed*"
+        { M365CollectS3KeyDelete -LambdaInput $input6 } |
+            Should -Throw "*Cleanup failed*"
     }
 }

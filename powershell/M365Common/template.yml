@@ -67,7 +67,12 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - S3:List*
+                  - s3:ListBucket
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh
+
+              - Effect: Allow
+                Action:
                   - S3:Get*
                   - S3:Put*
                   - S3:Delete*
@@ -105,6 +110,28 @@ Resources:
       FunctionName: M365CollectS3Export
       PackageType: Zip
       Handler: M365CollectS3Export.ps1::M365CollectS3Export
+      Runtime: provided.al2
+      CodeUri: ./
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !GetAtt LambdaAWSCommonRole.Arn
+      Architectures:
+        - arm64
+      Environment:
+        Variables: 
+          POWERSHELL_RUNTIME_VERBOSE: TRUE
+
+  ##########################################################################
+  # Lambda関数（S3キー削除）                                       
+  ##########################################################################
+  M365CollectS3KeyDelete:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: M365CollectS3KeyDelete
+      PackageType: Zip
+      Handler: M365CollectS3KeyDelete.ps1::M365CollectS3KeyDelete
       Runtime: provided.al2
       CodeUri: ./
       Layers:

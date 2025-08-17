@@ -8,6 +8,7 @@ def m365cols3import(event, context):
     collect_key = event.get('collect_key')
     group = event.get('group')
     targetdataname = event.get('targetdataname')
+    filename = event.get('filename')
     
     # 基準日ファイルから基準日を取得
     s3_client = boto3.client('s3')
@@ -34,26 +35,18 @@ def m365cols3import(event, context):
                     + "/day=" + base_date[8:10] + "/"
         json_file = s3_client.get_object(
             Bucket=bucket_name,
-            Key=targetkey + targetdataname + ".json"
+            Key=targetkey + filename
         )
         json_file_body = json_file['Body'].read().decode('utf-8')
         df = pd.read_json(StringIO(json_file_body)) 
-    except s3_client.exceptions.NoSuchKey:
-        print(f"[func-error]-[m365colimport]-[NoSuchKey] \
-            {targetkey}.")
-        return {
-            "statusCode": 500,
-            "message": f"m365cols3import Error : {str(e)}"
-        }
+    except s3_client.exceptions.NoSuchKey as e:
+        print(f"[func-error]-[m365colimport]-NoSuchKey: {targetkey + filename}")
+        return {"statusCode": 500, "message": f"File not found: {str(e)}"}
     except Exception as e:
-        print(f"[func-error]-[m365colimport]-[reading-error] \
-            {targetdataname}.json: {e}")
-        return {
-            "statusCode": 500,
-            "message": f"m365cols3import Error: {str(e)}"
-        }
+        print(f"[func-error]-[m365colimport]-reading JSON: {targetkey + filename} : {e}")
+        return {"statusCode": 500, "message": f"Error reading JSON: {str(e)}"}
    
-    return {"data": df['data'].tolist(),
+    return {"data": df.get('data', []).tolist(),
             "m365_base": df['m365_base'].iloc[0],
             "m365_from": df['m365_from'].iloc[0],
             "m365_to": df['m365_to'].iloc[0],

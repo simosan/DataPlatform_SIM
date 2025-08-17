@@ -4,6 +4,7 @@ powershell/settings.txt
 powershell/aws-lambda-powershell-runtime/
 powershell/command.txt
 powershell/*/output.json
+powershell/*/old/
 powershell/M365Common/samconfig.toml
 powershell/M365GetGroup/samconfig.toml
 powershell/M365Getuser/samconfig.toml
@@ -14,6 +15,7 @@ powershell/template.yml
 python/*/output.json
 python/*/__pycache__/
 python/*/.pytest_cache/
+python/*/old
 python/layers_work/
 python/layers_work_makefile/
 python/M365Common/samconfig.toml

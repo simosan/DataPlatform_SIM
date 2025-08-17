@@ -37,13 +37,19 @@ Resources:
                 Resource:
                   - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
               - Effect: Allow
+                Action:
+                  - S3:Put*
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::m365-dwh/*
+              - Effect: Allow
                 Action: 
                   - lambda:InvokeFunction
                 Resource: 
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365convs3export
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365convs3export_parquet
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365cols3import
-
+                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:m365cols3list
+                  
   ##########################################################################
   # Lambda関数（M365ユーザ情報変換関数）                                       
   ##########################################################################
@@ -55,6 +61,8 @@ Resources:
       Handler: m365convuser.m365convuser
       Runtime: python3.13
       CodeUri: ./
+      EphemeralStorage: 
+        Size: 10240
       Layers:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
