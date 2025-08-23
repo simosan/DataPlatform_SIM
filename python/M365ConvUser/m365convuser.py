@@ -78,7 +78,8 @@ def exp_s3_conv_data(bucket_name,
     try:
         # DataFrameをParquetに変換
         parquet_buffer = io.BytesIO()
-        df.to_parquet(parquet_buffer, index=False, engine='pyarrow', compression='snappy')
+        df.to_parquet(parquet_buffer, index=False, 
+                      engine='pyarrow', compression='zstd',compression_level=3)
         # S3にアップロード
         s3 = boto3.client('s3')
         s3.put_object(Bucket=bucket_name, Key=s3_key, Body=parquet_buffer.getvalue())

@@ -19,7 +19,24 @@ function M365CollectS3Export {
         $LambdaContext
     )
 
-    $body               = $LambdaInput.body
+    # --- bodyがgzip圧縮されたbyte配列の場合、解凍してJSONに変換 ---
+    if ($LambdaInput.is_gzip -eq $true) {
+        Write-Host "[Info] Received compressed payload: $($LambdaInput.body.Length) bytes"
+        $compressedBytes = [Convert]::FromBase64String($LambdaInput.body)
+        $ms = New-Object System.IO.MemoryStream(,$compressedBytes)
+        $gzip = New-Object System.IO.Compression.GzipStream($ms, [System.IO.Compression.CompressionMode]::Decompress)
+        $sr = New-Object System.IO.StreamReader($gzip, [System.Text.Encoding]::UTF8)
+        $decompressedJson = $sr.ReadToEnd()
+        $sr.Close()
+        $gzip.Close()
+        $ms.Close()
+        Write-Host "[Info] Decompressed payload: $($decompressedJson.Length) bytes"
+        $body = $decompressedJson | ConvertFrom-Json
+    } else {
+        $body = $LambdaInput.body
+        Write-Host "[Debug] M365GetGroup ${body}"
+    }
+
     $group              = $LambdaInput.group
     $targetdatatable    = $LambdaInput.targetdataname
     # ファイル単一出力 or ファイル複数出力判定
@@ -30,7 +47,12 @@ function M365CollectS3Export {
         $targetdataname = $targetdatatable
     }
 
-    Write-Host "[Debug] Received $($body.Count) users in batch $batchkey"
+    Write-Host "[Info] Received $($body.Count) users in batch $batchkey"
+
+    # 1件だけの場合は配列に変換（ConbertFrom-Jsonの仕様で、単一オブジェクトの場合配列にならないため）
+    if ($body -isnot [System.Object[]] -and $body -isnot [System.Collections.IEnumerable]) {
+        $body = @($body)
+    }
 
     # $body がリスト型（配列）であることをチェック
     if ($body -isnot [System.Collections.IEnumerable] -or $body -is [string]) {

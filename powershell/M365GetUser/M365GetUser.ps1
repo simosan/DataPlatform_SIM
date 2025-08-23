@@ -121,18 +121,34 @@ function M365GetUser {
     # 1000件ごとにpayLoadを作成
     for ($key = 0; $key -lt $batches.Count; $key++) {
         Write-Host "[Debug] Batch $key sending $($batches[$key].Count) users"
-        $payloadObj = @{
-            body           = $batches[$key]
+
+        $payloadObj = $batches[$key]
+        # --- ペイロードをgzip圧縮 ---
+        Write-Host "[Info] Batch $key payload (before gzip): $($payloadJson.Length) bytes"
+        $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
+        $ms = New-Object System.IO.MemoryStream
+        $gzip = New-Object System.IO.Compression.GzipStream($ms, [System.IO.Compression.CompressionMode]::Compress)
+        $gzip.Write($bytes, 0, $bytes.Length)
+        $gzip.Close()
+        $compressedPayload = $ms.ToArray()
+        $ms.Close()
+        Write-Host "[Info] Batch $key payload (after gzip): $($compressedPayload.Length) bytes"
+        # Base64エンコード（LambdaのInvoke-LMFunctionはバイナリ非対応で、System.Stringに変換する必要があるため）
+        $base64Payload = [Convert]::ToBase64String($compressedPayload)
+    
+        $invokePayload = @{
+            body           = $base64Payload
+            is_gzip        = $true
             targetdataname = "m365getuser"
             group          = "group1"
             batch          = [string]$key
         }
-        $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
-
+        $invokePayloadJson = $invokePayload | ConvertTo-Json -Depth 4 -Compress
         $invokeParams = @{
             FunctionName    = "M365CollectS3Export"
             InvocationType  = "RequestResponse"
-            Payload         = $payloadJson
+            Payload         = $invokePayloadJson
         }
 
         try {

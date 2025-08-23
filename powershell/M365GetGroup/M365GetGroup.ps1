@@ -72,6 +72,7 @@ function M365GetGroup {
     # データはbodyに、テーブル名はtargetdatanameに、データパイプラインのグループはgroupにそれぞれ格納
     $payloadObj = @{
         body = $groups
+        is_gzip = $false
         targetdataname = "m365getgroup"
         group = "group1"
     }
