@@ -12,12 +12,12 @@ try {
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop
 
 } catch {
-    Write-Host "[Func-Error]-[M365GetUser]-[Import-Module] $($_.Exception.Message)"
-    Write-Host "詳細Error $($_.Exception | Out-String)"
+    Write-Output "[Func-Error]-[M365GetUser]-[Import-Module] $($_.Exception.Message)"
+    Write-Output "詳細Error $($_.Exception | Out-String)"
     throw
 }
 
-function M365GetUser {
+function M365GetUserDocker {
     [cmdletbinding()]
     param(
         [parameter()]
@@ -43,8 +43,8 @@ function M365GetUser {
             $headers[$_.Name] = $_.Value
         }
     } catch {
-        Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
-        Write-Host "ErrorDetails: $($_.Exception | Out-String)"
+        Write-Output "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+        Write-Output "ErrorDetails: $($_.Exception | Out-String)"
         throw
     }
 
@@ -67,15 +67,15 @@ function M365GetUser {
 
         if ($response.FunctionError) {
             $errorPayload = $resultJson | ConvertFrom-Json
-            Write-Host "[Func-Error]-[M365GetUser]-[M365CollectS3KeyDelete:LambdaResponseError] `
+            Write-Output "[Func-Error]-[M365GetUser]-[M365CollectS3KeyDelete:LambdaResponseError] `
                 $($errorPayload.errorMessage)"
             throw $errorPayload
         } else {
             $result = $resultJson | ConvertFrom-Json
-            Write-Host "[Func-Success] Batch ${key}: $($result | Out-String)"
+            Write-Output "[Func-Success] Batch ${key}: $($result | Out-String)"
         }
     } catch {
-        Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+        Write-Output "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
         throw
     }
 
@@ -90,7 +90,7 @@ function M365GetUser {
         try {
             $response = Invoke-RestMethod -Method Get -Uri $nextLink -Headers $headers
         } catch {
-            Write-Host "[Func-Error]-[M365GetUser]-[Invoke-RestMethod failed] $_"
+            Write-Output "[Func-Error]-[M365GetUser]-[Invoke-RestMethod failed] $_"
             throw
         }
 
@@ -107,7 +107,7 @@ function M365GetUser {
         $nextLink = $response.'@odata.nextLink'
     } while ($nextLink)
   
-    Write-Host "[Func-Info] Total users fetched: $($users.Count)"
+    Write-Output "[Func-Info] Total users fetched: $($users.Count)"
 
     ## S3 送信用に分割（1000件ごと）
     $batchSize = 1000
@@ -121,11 +121,11 @@ function M365GetUser {
     }
     # 1000件ごとにpayLoadを作成
     for ($key = 0; $key -lt $batches.Count; $key++) {
-        Write-Host "[Debug] Batch $key sending $($batches[$key].Count) users"
+        Write-Output "[Debug] Batch $key sending $($batches[$key].Count) users"
 
         $payloadObj = $batches[$key]
         # --- ペイロードをgzip圧縮 ---
-        Write-Host "[Info] Batch $key payload (before gzip): $($payloadJson.Length) bytes"
+        Write-Output "[Info] Batch $key payload (before gzip): $($payloadJson.Length) bytes"
         $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
         $ms = New-Object System.IO.MemoryStream
@@ -134,7 +134,7 @@ function M365GetUser {
         $gzip.Close()
         $compressedPayload = $ms.ToArray()
         $ms.Close()
-        Write-Host "[Info] Batch $key payload (after gzip): $($compressedPayload.Length) bytes"
+        Write-Output "[Info] Batch $key payload (after gzip): $($compressedPayload.Length) bytes"
         # Base64エンコード（LambdaのInvoke-LMFunctionはバイナリ非対応で、System.Stringに変換する必要があるため）
         $base64Payload = [Convert]::ToBase64String($compressedPayload)
     
@@ -159,15 +159,15 @@ function M365GetUser {
 
             if ($response.FunctionError) {
                 $errorPayload = $resultJson | ConvertFrom-Json
-                Write-Host "[Func-Error]-[M365GetUser]-[M365CollectS3Export:LambdaResponseError] `
+                Write-Output "[Func-Error]-[M365GetUser]-[M365CollectS3Export:LambdaResponseError] `
                     $($errorPayload.errorMessage)"
                 throw $errorPayload
             } else {
                 $result = $resultJson | ConvertFrom-Json
-                Write-Host "[Func-Success] Batch ${key}: $($result | Out-String)"
+                Write-Output "[Func-Success] Batch ${key}: $($result | Out-String)"
             }
         } catch {
-            Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+            Write-Output "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
             throw
         }
     }

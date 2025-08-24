@@ -6,9 +6,8 @@ powershell/settings.txt
 powershell/aws-lambda-powershell-runtime/
 powershell/command.txt
 powershell/**/output.json
-powershell/M365Common/samconfig.toml
-powershell/M365GetGroup/samconfig.toml
-powershell/M365Getuser/samconfig.toml
+powershell/**/samconfig.toml
+powershell/M365GetUser-Docker/.aws-sam/
 powershell/module_work/
 powershell/parminit.sh
 powershell/samconfig.toml

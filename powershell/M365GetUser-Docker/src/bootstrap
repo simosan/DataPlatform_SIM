@@ -1,0 +1,23 @@
+#!/bin/sh
+# Lambda Custom Runtime Bootstrap 
+
+while true
+do
+    # 一時ファイルを作成
+    RESPONSE=$(mktemp /tmp/response.XXXXXX)
+    trap 'rm -f "$RESPONSE"' EXIT
+    # 次のイベントを取得
+    curl -s -D "$RESPONSE.headers" "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/next" -o "$RESPONSE.body"
+    # ヘッダから Request ID を取得
+    REQUEST_ID=$(grep -i Lambda-Runtime-Aws-Request-Id "$RESPONSE.headers" | awk '{print $2}' | tr -d '\r')
+    # 本体イベントデータを読み込む
+    EVENT_DATA=$(cat "$RESPONSE.body")
+    # PowerShell 呼び出し　（関数の標準出力、エラー出力をキャプチャするために 2>&1 を追加）
+    RESULT=$(pwsh -File /var/task/entry.ps1 -LambdaInput "$EVENT_DATA" 2>&1 | tee /proc/1/fd/1)
+    # 結果を Runtime API に返却
+    curl -s -X POST "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/$REQUEST_ID/response" \
+        -d "$RESULT"
+    # 一時ファイル削除
+    rm -f "$RESPONSE" "$RESPONSE.headers" "$RESPONSE.body"
+    trap - EXIT
+done

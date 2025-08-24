@@ -1,0 +1,5 @@
+1 ビルド
+sam build
+
+2 デプロイ
+sam deploy --guided
