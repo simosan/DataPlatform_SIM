@@ -16,6 +16,7 @@ EntraID（フリーテナント）からユーザ・グループ情報を取得�
 | Library                   | License            |
 |---------------------------|--------------------|
 | AWS.Tools for Powershell  | Apache License 2.0 |
+| Microsoft Graph PowerShell| MIT License        |
 | Pester                    | Apache License 2.0 |
 
 <br/>
@@ -142,6 +143,11 @@ Copy-Item -Recurse ~/.local/share/powershell/Modules/AWS.TOOLS. ./
 ```
 sam deploy
 ```
+
+<br/>
+（補足）<br/>
+　コンテナイメージを使用したLambda関数も参考までに用意。M365GetUser-Dockerディレクトリに格納。処理自体は、M365GetUserと同じもの。<br/>
+  こちらもsamビルドとsamデプロイで構築できるようサポート。
 <br/>
 
 ### python
