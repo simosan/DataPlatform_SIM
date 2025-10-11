@@ -32,7 +32,7 @@ Describe M365CollectS3keyDelete-Tests {
             [PSCustomObject]@{
                 ETag         = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                 BucketName   = "dummy-bucket"
-                Key          = "group1/collect/dummy-pipeline/year=2025/month=07/day=25/dummyfile.json"
+                Key          = "group1/collect/dummy-pipeline/date=20250725/dummyfile.json"
                 LastModified = "2017/01/01 00:00:00"
                 Owner        = "Amazon.S3.Model.Owner"
                 Size         = "100"

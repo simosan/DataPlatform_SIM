@@ -86,18 +86,17 @@ function M365CollectS3Export {
         Remove-Item -Path "/tmp/$tmpname" -Force -ErrorAction SilentlyContinue
     }
     
-    # ファイル格納先のS3パーティション作成 - m365-dwh/groupx/collect/$targetdataname/year=yyyy/month=MM/day=dd/
-    # パーティションキーはそれぞれの階層で作成すること！
+    # ファイル格納先のS3パーティション作成 - m365-dwh/groupx/collect/$targetdataname/date=yyyymmdd/
     # すでに存在したとしても、都度作成で問題なし（冪等性）
     $twotier    = $group + '/'
     $threetier  = (Get-SSMParameter -Name "/m365/common/pipelinecol").Value
     $fourtier   = $targetdatatable + '/'
-    $fivetier   = 'year=' + $psdttm.base.split('-')[0] + '/'
-    $sixtier    = 'month=' + $psdttm.base.split('-')[1] + '/'
-    $seventier  = 'day=' + $psdttm.base.split('-')[2] + '/'
+    $fivetier   = 'date=' + $psdttm.base.split('-')[0] + `
+                            $psdttm.base.split('-')[1] + `
+                            $psdttm.base.split('-')[2] + '/'
 
     # S3キーフルパス
-    $writekeys = $twotier + $threetier + $fourtier + $fivetier + $sixtier + $seventier
+    $writekeys = $twotier + $threetier + $fourtier + $fivetier
     # 一時ファイル名（Lambda用なら /tmp）
     $tmpJsonPath = "/tmp/$targetdatatable.json"
     # データ作成元のjsonデータに項目を追加。basedatetime.csvの内容を追加.

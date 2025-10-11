@@ -49,8 +49,8 @@ def basedatetimeupdate(event, context):
         basedate = dt - timedelta(days=1)
         basedate = basedate.strftime("%Y-%m-%d")
         df['base'] = basedate
-        df['from'] = basedate + 'T00:00'
-        df['to'] = basedate + 'T23:59'
+        df['from'] = basedate + ' 00:00'
+        df['to'] = basedate + ' 23:59'
 
         print(df['base'][0], df['from'][0], df['to'][0])
 

@@ -26,7 +26,7 @@ RUN pwsh -Command "& { \
     Install-Module -Name Microsoft.Graph -Force -Scope AllUsers \
 }"
 
-# Lambda ハンドラと bootstrap を配置
+# Lambda ハンドラと bootstrap を配置（関数本体,entry.ps1は/var/task, bootstrapは/var/runtimeに配置）
 COPY src/ /var/task/
 RUN chmod +x /var/task/bootstrap && cp /var/task/bootstrap /var/runtime/bootstrap
 

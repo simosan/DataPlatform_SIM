@@ -31,9 +31,8 @@ def m365cols3import(event, context):
     
     # 各収集データの取得
     try:
-        targetkey = group + "/" + collect_key + targetdataname + "/" + "year=" \
-                    + base_date[:4] + "/month=" + base_date[5:7]  \
-                    + "/day=" + base_date[8:10] + "/"
+        dtstr = base_date.replace("-", "")
+        targetkey = f"{group}/{collect_key}{targetdataname}/date={dtstr}/"
         json_file = s3_client.get_object(
             Bucket=bucket_name,
             Key=targetkey + filename

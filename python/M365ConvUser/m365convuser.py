@@ -67,11 +67,10 @@ def exp_s3_conv_data(bucket_name,
                      df):
 
     # S3出力先のキーを組み立て
+    dtstr=base_date.replace("-", "")
     target_key = (f"{group}/{target_key}"
                  f"{targetdataname}/"
-                 f"year={base_date[:4]}/"
-                 f"month={base_date[5:7]}/"
-                 f"day={base_date[8:10]}/")
+                 f"date={dtstr}/")
     file_name = f"{targetdataname}.parquet" 
     s3_key = f"{target_key}{file_name}"
 
@@ -79,7 +78,7 @@ def exp_s3_conv_data(bucket_name,
         # DataFrameをParquetに変換
         parquet_buffer = io.BytesIO()
         df.to_parquet(parquet_buffer, index=False, 
-                      engine='pyarrow', compression='zstd',compression_level=3)
+                      engine='pyarrow', compression='snappy')
         # S3にアップロード
         s3 = boto3.client('s3')
         s3.put_object(Bucket=bucket_name, Key=s3_key, Body=parquet_buffer.getvalue())

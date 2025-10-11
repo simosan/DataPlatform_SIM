@@ -47,16 +47,16 @@ function M365CollectS3KeyDelete {
         Remove-Item -Path "/tmp/$tmpname" -Force -ErrorAction SilentlyContinue
     }
     
-    # 指定キー指定 m365-dwh/groupx/collect/$targetdataname/year=yyyy/month=MM/day=dd/
+    # 指定キー指定 m365-dwh/groupx/collect/$targetdataname/date=yyyymmdd/
     $twotier    = $group + '/'
     $threetier  = (Get-SSMParameter -Name "/m365/common/pipelinecol").Value
     $fourtier   = $targetdatatable + '/'
-    $fivetier   = 'year=' + $psdttm.base.split('-')[0] + '/'
-    $sixtier    = 'month=' + $psdttm.base.split('-')[1] + '/'
-    $seventier  = 'day=' + $psdttm.base.split('-')[2] + '/'
+    $fivetier   = 'date=' + $psdttm.base.split('-')[0] + `
+                            $psdttm.base.split('-')[1] + `
+                            $psdttm.base.split('-')[2] + '/'
 
     # S3キーフルパス
-    $writekeys = $twotier + $threetier + $fourtier + $fivetier + $sixtier + $seventier
+    $writekeys = $twotier + $threetier + $fourtier + $fivetier  
     # 冪等性のため、上書き対象のキーを削除
     try {
         $existingObjects = Get-S3Object -BucketName $bucketname -KeyPrefix $writekeys -ErrorAction Stop

@@ -33,9 +33,8 @@ def m365cols3list(event, context):
     keys = [] 
     files = []
     try:
-        targetkey = group + "/" + collect_key + targetdataname + "/" + "year=" \
-                    + base_date[:4] + "/month=" + base_date[5:7]  \
-                    + "/day=" + base_date[8:10] + "/"
+        dtstr = base_date.replace("-", "")
+        targetkey = f"{group}/{collect_key}{targetdataname}/date={dtstr}/"
         # 返却リストは1000件まで
         keys = s3_client.list_objects(Bucket=bucket_name, Prefix=targetkey)
         for key in keys.get('Contents', []):
