@@ -1,20 +1,13 @@
-FROM public.ecr.aws/lambda/provided:al2
-
-ENV NO_COLOR=true
+FROM public.ecr.aws/amazonlinux/amazonlinux:2.0.20250818.2-arm64v8
 
 # PowerShell (ARM64) のインストール
-RUN yum install -y wget tar gzip curl jq && yum clean all && \
+RUN yum install -y wget tar gzip curl jq icu && yum clean all && \
     curl -L https://github.com/PowerShell/PowerShell/releases/download/v7.4.4/powershell-7.4.4-linux-arm64.tar.gz -o /tmp/powershell.tar.gz && \
     mkdir -p /opt/microsoft/powershell/7 && \
     tar zxf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 && \
     chmod +x /opt/microsoft/powershell/7/pwsh && \
     ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh && \
     rm /tmp/powershell.tar.gz
-
-# AWS Lambda Runtime Interface Client (RIC)
-RUN curl -Lo /var/runtime/bootstrap \
-      https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie-arm64 \
-    && chmod +x /var/runtime/bootstrap
 
 # PowerShell モジュールのインストール
 RUN pwsh -Command "& { \
@@ -26,8 +19,9 @@ RUN pwsh -Command "& { \
     Install-Module -Name Microsoft.Graph -Force -Scope AllUsers \
 }"
 
-# Lambda ハンドラと bootstrap を配置（関数本体,entry.ps1は/var/task, bootstrapは/var/runtimeに配置）
-COPY src/ /var/task/
-RUN chmod +x /var/task/bootstrap && cp /var/task/bootstrap /var/runtime/bootstrap
+# 起動スクリプトを配置
+COPY src/entrypoint.ps1 /entrypoint.ps1
+RUN chmod +x /entrypoint.ps1
 
-ENTRYPOINT ["/var/task/bootstrap"]
+# PowerShell をデフォルトシェルに
+ENTRYPOINT ["pwsh", "/entrypoint.ps1"]

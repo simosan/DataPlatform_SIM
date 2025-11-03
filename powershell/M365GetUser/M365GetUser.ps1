@@ -17,16 +17,9 @@ try {
     throw
 }
 
-function M365GetUser {
-    [cmdletbinding()]
-    param(
-        [parameter()]
-        $LambdaInput,
-        [parameter()]
-        $LambdaContext
-    )
 
-    ## M365Auth関数呼び出し-認証ヘッダ取得
+## 認証ヘッダ取得関数
+function M365Auth {
     try {
         $invokeParams = @{
             FunctionName    = "M365Auth"
@@ -48,18 +41,32 @@ function M365GetUser {
         throw
     }
 
-    # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
+    return $headers
+}
+
+## 既存S3キー削除関数（M365CollectS3KeyDelete） 呼び出し
+function CallM365CollectS3KeyDelete {
+    param(
+        [Parameter(Mandatory = $true)]
+        $targetdataname,    # S3のターゲットデータ名
+        [Parameter(Mandatory = $true)]
+        $group,     # S3のグループキー名
+        [Parameter(Mandatory = $true)]
+        $basedate   # リカバリ用に関数入力パラメータから基準日を取得（na or yyyy-mm-dd形式）
+    )
+
     $payloadObj = @{
-       targetdataname = "m365getuser"
-       group          = "group1"
-    } 
+       targetdataname = $targetdataname
+       group          = $group
+       basedate       = $basedate
+    }
     $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
     $invokeParams = @{
         FunctionName    = "M365CollectS3KeyDelete"
         InvocationType  = "RequestResponse"
         Payload         = $payloadJson
     }
-    
+
     try {
         $response = Invoke-LMFunction @invokeParams
         $reader = New-Object System.IO.StreamReader($response.Payload)
@@ -67,7 +74,7 @@ function M365GetUser {
 
         if ($response.FunctionError) {
             $errorPayload = $resultJson | ConvertFrom-Json
-            Write-Host "[Func-Error]-[M365GetUser]-[M365CollectS3KeyDelete:LambdaResponseError] `
+            Write-Host "[Func-Error]-[M365GetUser]-[CallM365CollectS3KeyDelete:LambdaResponseError] `
                 $($errorPayload.errorMessage)"
             throw $errorPayload
         } else {
@@ -78,7 +85,39 @@ function M365GetUser {
         Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
         throw
     }
+}
 
+## main
+function M365GetUser {
+    [cmdletbinding()]
+    param(
+        [parameter()]
+        $LambdaInput,
+        [parameter()]
+        $LambdaContext
+    )
+    $LambdaInput = $LambdaInput | ConvertFrom-Json
+    # リカバリ用に関数入力パラメータから基準日を取得（未使用：na, リカバリ用：yyyy-mm-dd形式）
+    if ($null -eq $LambdaInput.basedate) {
+        $basedate = "na"
+        $fromtimestamp = $null
+        $totimestamp   = $null
+    }else{
+        if ($LambdaInput.basedate -notmatch '^\d{4}-\d{2}-\d{2}$') {
+            throw "[Func-Error]-[M365GetUser]-[InvalidInput] basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。"
+        }
+        $basedate = $LambdaInput.basedate
+        $fromtimestamp = $LambdaInput.fromtimestamp
+        $totimestamp   = $LambdaInput.totimestamp
+    }
+
+    ## M365Auth関数呼び出し-認証ヘッダ取得
+    $headers = M365Auth
+
+    # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
+    $targetdataname = "m365getuser"
+    $group          = "group1"
+    CallM365CollectS3KeyDelete -targetdataname $targetdataname -group $group -basedate $basedate
 
     ## ユーザ一覧取得（1000件ずつ取得（ページネーション対応））
     # エンドポイント
@@ -106,7 +145,7 @@ function M365GetUser {
 
         $nextLink = $response.'@odata.nextLink'
     } while ($nextLink)
-  
+
     Write-Host "[Func-Info] Total users fetched: $($users.Count)"
 
     ## S3 送信用に分割（1000件ごと）
@@ -137,13 +176,16 @@ function M365GetUser {
         Write-Host "[Info] Batch $key payload (after gzip): $($compressedPayload.Length) bytes"
         # Base64エンコード（LambdaのInvoke-LMFunctionはバイナリ非対応で、System.Stringに変換する必要があるため）
         $base64Payload = [Convert]::ToBase64String($compressedPayload)
-    
+
         $invokePayload = @{
             body           = $base64Payload
             is_gzip        = $true
             targetdataname = "m365getuser"
             group          = "group1"
             batch          = [string]$key
+            basedate       = $basedate
+            fromtimestamp  = $fromtimestamp
+            totimestamp    = $totimestamp
         }
         $invokePayloadJson = $invokePayload | ConvertTo-Json -Depth 4 -Compress
         $invokeParams = @{

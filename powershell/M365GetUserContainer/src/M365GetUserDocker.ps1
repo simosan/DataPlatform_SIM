@@ -7,26 +7,24 @@
 # - /m365/auth/clientSecret: EntraID アプリケーションのクライアントシークレット
 # - /m365/auth/scope: Microsoft Graph APIのスコープ (例: "https://graph.microsoft.com/.default")
 # - /m365/getuser/targeturi: ユーザ情報を取得するためのエンドポイント (例: "https://graph.microsoft.com/v1.0/users")
+# PowerShell スクリプト引数を受け取り、関数に渡す
+param(
+    [string]$CommandInput
+)
+
 try {
     Import-Module AWS.Tools.Lambda -ErrorAction Stop
     Import-Module AWS.Tools.SimpleSystemsManagement -ErrorAction Stop
 
 } catch {
-    Write-Output "[Func-Error]-[M365GetUser]-[Import-Module] $($_.Exception.Message)"
-    Write-Output "詳細Error $($_.Exception | Out-String)"
+    Write-Host "[Func-Error]-[M365GetUser]-[Import-Module] $($_.Exception.Message)"
+    Write-Host "詳細Error $($_.Exception | Out-String)"
     throw
 }
 
-function M365GetUserDocker {
-    [cmdletbinding()]
-    param(
-        [parameter()]
-        $LambdaInput,
-        [parameter()]
-        $LambdaContext
-    )
 
-    ## M365Auth関数呼び出し-認証ヘッダ取得
+## 認証ヘッダ取得関数
+function M365Auth {
     try {
         $invokeParams = @{
             FunctionName    = "M365Auth"
@@ -43,23 +41,37 @@ function M365GetUserDocker {
             $headers[$_.Name] = $_.Value
         }
     } catch {
-        Write-Output "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
-        Write-Output "ErrorDetails: $($_.Exception | Out-String)"
+        Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+        Write-Host "ErrorDetails: $($_.Exception | Out-String)"
         throw
     }
 
-    # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
+    return $headers
+}
+
+## 既存S3キー削除関数（M365CollectS3KeyDelete） 呼び出し
+function CallM365CollectS3KeyDelete {
+    param(
+        [Parameter(Mandatory = $true)]
+        $targetdataname,    # S3のターゲットデータ名
+        [Parameter(Mandatory = $true)]
+        $group,     # S3のグループキー名
+        [Parameter(Mandatory = $true)]
+        $basedate   # リカバリ用に関数入力パラメータから基準日を取得（na or yyyy-mm-dd形式）
+    )
+
     $payloadObj = @{
-       targetdataname = "m365getuser"
-       group          = "group1"
-    } 
+       targetdataname = $targetdataname
+       group          = $group
+       basedate       = $basedate
+    }
     $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
     $invokeParams = @{
         FunctionName    = "M365CollectS3KeyDelete"
         InvocationType  = "RequestResponse"
         Payload         = $payloadJson
     }
-    
+
     try {
         $response = Invoke-LMFunction @invokeParams
         $reader = New-Object System.IO.StreamReader($response.Payload)
@@ -67,18 +79,54 @@ function M365GetUserDocker {
 
         if ($response.FunctionError) {
             $errorPayload = $resultJson | ConvertFrom-Json
-            Write-Output "[Func-Error]-[M365GetUser]-[M365CollectS3KeyDelete:LambdaResponseError] `
+            Write-Host "[Func-Error]-[M365GetUser]-[CallM365CollectS3KeyDelete:LambdaResponseError] `
                 $($errorPayload.errorMessage)"
             throw $errorPayload
         } else {
             $result = $resultJson | ConvertFrom-Json
-            Write-Output "[Func-Success] Batch ${key}: $($result | Out-String)"
+            Write-Host "[Func-Success] Batch ${key}: $($result | Out-String)"
         }
     } catch {
-        Write-Output "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+        Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
         throw
     }
+}
 
+## main
+function M365GetUserDocker {
+    [cmdletbinding()]
+    param(
+        [parameter()]
+        $CommandInput
+    )
+
+    $CommandInput = $CommandInput | ConvertFrom-Json
+
+    # リカバリ用に関数入力パラメータから基準日を取得（未使用：na, リカバリ用：yyyy-mm-dd形式）
+    if ($null -eq $CommandInput.basedate) {
+        $basedate = "na"
+        $fromtimestamp = $null
+        $totimestamp   = $null
+    }else{
+        if ($CommandInput.basedate -notmatch '^\d{4}-\d{2}-\d{2}$') {
+            throw "[Func-Error]-[M365GetUser]-[InvalidInput] basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。"
+        }
+        $basedate = $CommandInput.basedate
+        $fromtimestamp = $CommandInput.fromtimestamp
+        $totimestamp   = $CommandInput.totimestamp
+    }
+
+    Write-Host "[Func-Info] basedate: $basedate"
+
+    ## M365Auth関数呼び出し-認証ヘッダ取得
+    $headers = M365Auth
+
+    # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
+    $targetdataname = "m365getuser"
+    $group          = "group1"
+    CallM365CollectS3KeyDelete -targetdataname $targetdataname `
+                               -group $group `
+                               -basedate $basedate
 
     ## ユーザ一覧取得（1000件ずつ取得（ページネーション対応））
     # エンドポイント
@@ -90,7 +138,7 @@ function M365GetUserDocker {
         try {
             $response = Invoke-RestMethod -Method Get -Uri $nextLink -Headers $headers
         } catch {
-            Write-Output "[Func-Error]-[M365GetUser]-[Invoke-RestMethod failed] $_"
+            Write-Host "[Func-Error]-[M365GetUser]-[Invoke-RestMethod failed] $_"
             throw
         }
 
@@ -106,8 +154,8 @@ function M365GetUserDocker {
 
         $nextLink = $response.'@odata.nextLink'
     } while ($nextLink)
-  
-    Write-Output "[Func-Info] Total users fetched: $($users.Count)"
+
+    Write-Host "[Func-Info] Total users fetched: $($users.Count)"
 
     ## S3 送信用に分割（1000件ごと）
     $batchSize = 1000
@@ -121,11 +169,11 @@ function M365GetUserDocker {
     }
     # 1000件ごとにpayLoadを作成
     for ($key = 0; $key -lt $batches.Count; $key++) {
-        Write-Output "[Debug] Batch $key sending $($batches[$key].Count) users"
+        Write-Host "[Debug] Batch $key sending $($batches[$key].Count) users"
 
         $payloadObj = $batches[$key]
         # --- ペイロードをgzip圧縮 ---
-        Write-Output "[Info] Batch $key payload (before gzip): $($payloadJson.Length) bytes"
+        Write-Host "[Info] Batch $key payload (before gzip): $($payloadJson.Length) bytes"
         $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($payloadJson)
         $ms = New-Object System.IO.MemoryStream
@@ -134,16 +182,19 @@ function M365GetUserDocker {
         $gzip.Close()
         $compressedPayload = $ms.ToArray()
         $ms.Close()
-        Write-Output "[Info] Batch $key payload (after gzip): $($compressedPayload.Length) bytes"
+        Write-Host "[Info] Batch $key payload (after gzip): $($compressedPayload.Length) bytes"
         # Base64エンコード（LambdaのInvoke-LMFunctionはバイナリ非対応で、System.Stringに変換する必要があるため）
         $base64Payload = [Convert]::ToBase64String($compressedPayload)
-    
+
         $invokePayload = @{
             body           = $base64Payload
             is_gzip        = $true
             targetdataname = "m365getuser"
             group          = "group1"
             batch          = [string]$key
+            basedate       = $basedate
+            fromtimestamp  = $fromtimestamp
+            totimestamp    = $totimestamp
         }
         $invokePayloadJson = $invokePayload | ConvertTo-Json -Depth 4 -Compress
         $invokeParams = @{
@@ -159,18 +210,21 @@ function M365GetUserDocker {
 
             if ($response.FunctionError) {
                 $errorPayload = $resultJson | ConvertFrom-Json
-                Write-Output "[Func-Error]-[M365GetUser]-[M365CollectS3Export:LambdaResponseError] `
+                Write-Host "[Func-Error]-[M365GetUser]-[M365CollectS3Export:LambdaResponseError] `
                     $($errorPayload.errorMessage)"
                 throw $errorPayload
             } else {
                 $result = $resultJson | ConvertFrom-Json
-                Write-Output "[Func-Success] Batch ${key}: $($result | Out-String)"
+                Write-Host "[Func-Success] Batch ${key}: $($result | Out-String)"
             }
         } catch {
-            Write-Output "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+            Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
             throw
         }
     }
 
     return @{ status = "success" } | ConvertTo-Json -Compress
 }
+
+## Entry Point
+M365GetUserDocker -CommandInput $CommandInput

@@ -8,7 +8,7 @@ Parameters:
     Default: "SimPwshRuntimeLayer"
   LayerVersion:
     Type: Number
-    Default: 1 
+    Default: 1
 
 Resources:
   ##########################################################################
@@ -39,12 +39,13 @@ Resources:
                   - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
               - Effect: Allow
                 Action: lambda:InvokeFunction
-                Resource: 
+                Resource:
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365Auth
                   - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365CollectS3Export
+                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365CollectS3KeyDelete
 
   ##########################################################################
-  # Lambda関数（M365グループ情報取得関数）                                       
+  # Lambda関数（M365グループ情報取得関数）
   ##########################################################################
   M365GetUserFunction:
     Type: AWS::Serverless::Function
@@ -62,5 +63,5 @@ Resources:
       Architectures:
         - arm64
       Environment:
-        Variables: 
+        Variables:
           POWERSHELL_RUNTIME_VERBOSE: TRUE

@@ -12,16 +12,21 @@ def m365cols3list(event, context):
     group = event.get('group')
     targetdataname = event.get('targetdataname')
 
-    # 基準日ファイルから基準日を取得
+    ## 基準日(yyyy-mm-dd)をS3から取得。またはリカバリ用に関数入力パラメータから基準日(yyyy-mm-dd)を取得。
     s3_client = boto3.client('s3')
     try:
-        csv_file = s3_client.get_object(
-            Bucket=bucket_name,
-            Key="basedatetime/basedatetime.csv"
-        )
-        csv_file_body = csv_file['Body'].read().decode('utf-8')
-        df = pd.read_csv(StringIO(csv_file_body), usecols=['base'])
-        base_date = df['base'].iloc[0]
+        # 通常処理の場合、S3から基準日を取得
+        if event.get('basedate') == 'na':
+            csv_file = s3_client.get_object(
+                Bucket=bucket_name,
+                Key="basedatetime/basedatetime.csv"
+            )
+            csv_file_body = csv_file['Body'].read().decode('utf-8')
+            df = pd.read_csv(StringIO(csv_file_body), usecols=['base'])
+            base_date = df['base'].iloc[0]
+        # リカバリ用基準日が指定されている場合、その日付を使用
+        else:
+            base_date = event.get('basedate')
     except Exception as e:
         print(f"[func-error]-[m365cols3list]-[reading-error] \
             basedatetime.csv: {e}")
@@ -30,7 +35,7 @@ def m365cols3list(event, context):
             "message": f"m365cols3list Error : {str(e)}"
         }
 
-    keys = [] 
+    keys = []
     files = []
     try:
         dtstr = base_date.replace("-", "")
@@ -48,7 +53,6 @@ def m365cols3list(event, context):
             "statusCode": 500,
             "message": f"m365cols3list Error : {str(e)}"
         }
-    
+
     return { "statusCode": 200, "files": files }
 
-        

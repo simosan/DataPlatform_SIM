@@ -2,7 +2,10 @@
 *pptx
 localstack/
 stepfunctions/
+*output.json
 powershell/**/old
+powershell/**/work
+powershell/**/*output.json
 powershell/settings.txt
 powershell/aws-lambda-powershell-runtime/
 powershell/command.txt
@@ -28,3 +31,5 @@ python/S3TOPG/command.txt
 python/S3TOPG/samconfig.toml
 python/S3TOPG/tmp/
 python/settings.txt
+python/command.txt
+python/**/*output.json

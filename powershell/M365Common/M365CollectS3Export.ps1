@@ -14,7 +14,6 @@ function M365CollectS3Export {
     param(
         [Parameter(Mandatory = $true)]
         $LambdaInput,
-
         [Parameter(Mandatory = $false)]
         $LambdaContext
     )
@@ -42,7 +41,7 @@ function M365CollectS3Export {
     # ファイル単一出力 or ファイル複数出力判定
     if (![System.String]::IsNullOrEmpty($LambdaInput.batch)) {
         $batchkey = $LambdaInput.batch
-        $targetdataname = $batchkey + '_' + $targetdatatable 
+        $targetdataname = $batchkey + '_' + $targetdatatable
     } else {
         $targetdataname = $targetdatatable
     }
@@ -56,28 +55,38 @@ function M365CollectS3Export {
 
     # $body がリスト型（配列）であることをチェック
     if ($body -isnot [System.Collections.IEnumerable] -or $body -is [string]) {
-        Write-Host "[FuncError]-[S3Export]-[InvalidInput] bodyが配列型ではありません" 
+        Write-Host "[FuncError]-[S3Export]-[InvalidInput] bodyが配列型ではありません"
         throw "[FuncError]-[S3Export]-[InvalidInput] bodyが配列型ではありません"
     }
-   
+
     # $group が 'group' に続く数値の形式であることをチェック
     if ($group -notmatch '^group\d+$') {
         Write-Host "[Func-Error]-[S3Export]-[InvalidInput] groupの形式が不正です。'group<number>'の形式で指定してください。"
         throw "[Func-Error]-[S3Export]-[InvalidInput] groupの形式が不正です。'group<number>'の形式で指定してください。"
     }
-   
+
     # $targetdataname が空やnullでないことをチェック
     if ([string]::IsNullOrWhiteSpace($targetdatatable)) {
         throw "[Func-Error]-[S3Export]-[InvalidInput] targetdatanameがnullまたは空です。"
     }
 
-    ## 基準日日付をS3から取得。
+    ## 基準日(yyyy-mm-dd)をS3から取得。またはリカバリ用に関数入力パラメータから基準日(yyyy-mm-dd)を取得。
     # 一時ファイル名（Lambdaの/tmpディレクトリに保存。他関数との競合回避のためGUID付加）
     $bucketname = (Get-SSMParameter -Name "/m365/common/s3bucket").Value
     try {
         $tmpname = $([guid]::NewGuid().ToString()) + "_basedatetime.csv"
-        Read-S3Object -BucketName $bucketname -Key "basedatetime/basedatetime.csv" -File "/tmp/$tmpname"
-        $psdttm = Import-Csv -Path "/tmp/$tmpname"
+        if ($LambdaInput.basedate -eq "na") {
+            # 通常処理の場合、S3から基準日を取得
+            Read-S3Object -BucketName $bucketname -Key "basedatetime/basedatetime.csv" -File "/tmp/$tmpname"
+            $psdttm = Import-Csv -Path "/tmp/$tmpname"
+        } else {
+            # リカバリ用基準日が指定されている場合、その日付(base),タイムスタンプ（from,to)を使用
+            $psdttm = [PSCustomObject]@{
+                base = $LambdaInput.basedate
+                from = $LambdaInput.fromtimestamp
+                to   = $LambdaInput.totimestamp
+            }
+        }
     } catch {
         Write-Host "[Func-Error]-[S3Export]-[Read-basedatetime.csv failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"
@@ -85,7 +94,7 @@ function M365CollectS3Export {
     } finally {
         Remove-Item -Path "/tmp/$tmpname" -Force -ErrorAction SilentlyContinue
     }
-    
+
     # ファイル格納先のS3パーティション作成 - m365-dwh/groupx/collect/$targetdataname/date=yyyymmdd/
     # すでに存在したとしても、都度作成で問題なし（冪等性）
     $twotier    = $group + '/'
@@ -111,7 +120,7 @@ function M365CollectS3Export {
     $wrapObject | ConvertTo-Json -Depth 10 | Out-File -FilePath $tmpJsonPath -Encoding UTF8
     # S3にファイルをアップロード
     try {
-        Write-S3Object -BucketName $bucketname -Key "$writekeys$targetdataname.json" -File $tmpJsonPath 
+        Write-S3Object -BucketName $bucketname -Key "$writekeys$targetdataname.json" -File $tmpJsonPath
     } catch {
         Write-Host "[Func-Error]-[S3Export]-[Write-S3Object failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"

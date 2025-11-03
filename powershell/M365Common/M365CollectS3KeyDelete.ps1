@@ -13,32 +13,39 @@ function M365CollectS3KeyDelete {
     param(
         [Parameter(Mandatory = $true)]
         $LambdaInput,
-
         [Parameter(Mandatory = $false)]
         $LambdaContext
     )
 
     $group              = $LambdaInput.group
     $targetdatatable    = $LambdaInput.targetdataname
-   
+
     # $group が 'group' に続く数値の形式であることをチェック
     if ($group -notmatch '^group\d+$') {
         Write-Host "[Func-Error]-[S3Export]-[InvalidInput] groupの形式が不正です。'group<number>'の形式で指定してください。"
         throw "[Func-Error]-[S3Export]-[InvalidInput] groupの形式が不正です。'group<number>'の形式で指定してください。"
     }
-   
+
     # $targetdataname が空やnullでないことをチェック
     if ([string]::IsNullOrWhiteSpace($targetdatatable)) {
         throw "[Func-Error]-[S3Export]-[InvalidInput] targetdatanameがnullまたは空です。"
     }
 
-    ## 基準日日付をS3から取得。
+    ## 基準日(yyyy-mm-dd)をS3から取得。またはリカバリ用に関数入力パラメータから基準日(yyyy-mm-dd)を取得。
     # 一時ファイル名（Lambdaの/tmpディレクトリに保存。他関数との競合回避のためGUID付加）
     $bucketname = (Get-SSMParameter -Name "/m365/common/s3bucket").Value
     try {
         $tmpname = $([guid]::NewGuid().ToString()) + "_basedatetime.csv"
-        Read-S3Object -BucketName $bucketname -Key "basedatetime/basedatetime.csv" -File "/tmp/$tmpname"
-        $psdttm = Import-Csv -Path "/tmp/$tmpname"
+        if ($LambdaInput.basedate -eq "na") {
+           # 通常処理の場合、S3から基準日を取得
+            Read-S3Object -BucketName $bucketname -Key "basedatetime/basedatetime.csv" -File "/tmp/$tmpname"
+            $psdttm = Import-Csv -Path "/tmp/$tmpname"
+        } else {
+            # リカバリ用基準日が指定されている場合、その日付を使用
+            $psdttm = [PSCustomObject]@{
+                base = $LambdaInput.basedate
+            }
+        }
     } catch {
         Write-Host "[Func-Error]-[S3Export]-[Read-basedatetime.csv failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"
@@ -46,7 +53,7 @@ function M365CollectS3KeyDelete {
     } finally {
         Remove-Item -Path "/tmp/$tmpname" -Force -ErrorAction SilentlyContinue
     }
-    
+
     # 指定キー指定 m365-dwh/groupx/collect/$targetdataname/date=yyyymmdd/
     $twotier    = $group + '/'
     $threetier  = (Get-SSMParameter -Name "/m365/common/pipelinecol").Value
@@ -56,7 +63,7 @@ function M365CollectS3KeyDelete {
                             $psdttm.base.split('-')[2] + '/'
 
     # S3キーフルパス
-    $writekeys = $twotier + $threetier + $fourtier + $fivetier  
+    $writekeys = $twotier + $threetier + $fourtier + $fivetier
     # 冪等性のため、上書き対象のキーを削除
     try {
         $existingObjects = Get-S3Object -BucketName $bucketname -KeyPrefix $writekeys -ErrorAction Stop
