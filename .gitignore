@@ -13,7 +13,7 @@ powershell/**/output.json
 powershell/**/samconfig.toml
 powershell/M365GetUser-Docker/.aws-sam/
 powershell/module_work/
-powershell/parminit.sh
+**/parminit.sh
 powershell/samconfig.toml
 powershell/template.yml
 python/**/output.json
@@ -33,3 +33,4 @@ python/S3TOPG/tmp/
 python/settings.txt
 python/command.txt
 python/**/*output.json
+python/CatalogUpdateContainer/work/

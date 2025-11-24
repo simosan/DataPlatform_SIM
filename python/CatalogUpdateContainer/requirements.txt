@@ -1,0 +1,8 @@
+# Core AWS SDK
+boto3==1.34.77
+
+# For Parquet schema比較とCSV/日付処理 (updatecatalog.py で使用)
+# Python 3.12 対応確認済みの最新版をピン留め（2025-11 時点想定）。
+pandas==2.2.2
+pyarrow==17.0.0
+
