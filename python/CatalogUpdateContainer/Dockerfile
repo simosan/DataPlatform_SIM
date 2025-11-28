@@ -15,7 +15,8 @@ ENV PYTHON_VERSION=3.12 \
 	PYTHONUNBUFFERED=1 \
 	PIP_NO_CACHE_DIR=off \
 	PIP_DISABLE_PIP_VERSION_CHECK=on \
-	APP_HOME=/app
+	APP_HOME=/app \
+	PYTHONPATH=""
 
 WORKDIR $APP_HOME
 
@@ -24,10 +25,9 @@ WORKDIR $APP_HOME
 COPY requirements.txt ./
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
-
 # ===== ソース配置 =====
 COPY src/ENTRYPOINT.py ./src/
-ENV PYTHONPATH="${APP_HOME}/src:${PYTHONPATH}"
+ENV PYTHONPATH="${APP_HOME}/src"
 
 # ===== 非 root 実行ユーザー作成 =====
 RUN useradd -m appuser && chown -R appuser:appuser $APP_HOME

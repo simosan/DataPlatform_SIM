@@ -175,14 +175,14 @@ def tablecolumns_diff_verify(
     期待S3配置: s3://<bucket>/<group>/<convert_key>/<table>/date=YYYYMMDD/<table>.parquet
     base_s3_path は "s3://<bucket>/<group>/<convert_key>/" で終端スラッシュ付き想定。
 
-    戻り値(dict):
-      {
-        'diff': bool,                     # 差分有無（追加/削除いずれか）
-        'missing_in_target': [..],        # 基準日に存在し指定日側に存在しないカラム
-        'added_in_target': [..],          # 指定日側に新規追加されたカラム
-        'base_columns': [..],             # 基準日カラム一覧
-        'target_columns': [..],           # 指定日カラム一覧
-      }
+        戻り値(dict):
+            {
+                'diff': bool,                     # 差分有無（追加/削除いずれか）
+                'newly_added_columns': [..],      # 基準日に存在し指定日側に存在しないカラム
+                'removed_columns': [..],          # 指定日側に存在し基準日に存在しないカラム
+                'base_columns': [..],             # 基準日カラム一覧
+                'target_columns': [..],           # 指定日カラム一覧
+            }
 
     base_cols_override / target_cols_override が与えられた場合はS3/Parquet読込をスキップする。
     テスト用で利用する。
@@ -314,14 +314,8 @@ def specifiedday_diff_verify_and_runcrawler(table: str, base_s3_path: str, base_
 def prevday_diff_verify_and_runcrawler(tablelist: str, base_s3_path: str, base_date: str):
     """前日との差分を各テーブルで検証し、差分有無に応じて走査種別を切替。
 
-    戻り値: list[dict]
-      各要素 {
-        'table': str,
-        'diff': bool,
-        'newly_added_columns': list,
-        'removed_columns': list,
-        'scan': { catalog_scan の戻り値 },
-      }
+        戻り値: list[str]
+            起動したクローラ名のリスト
     """
     # テーブルに紐づくクローラー名リスト
     run_crawler_list = []
