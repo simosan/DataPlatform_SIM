@@ -6,7 +6,7 @@ RUN rpm -e --nodeps curl-minimal \
  && dnf clean all
 
 # PowerShell (x86_64) のインストール
-RUN curl -L https://github.com/PowerShell/PowerShell/releases/download/v7.5.3/powershell-7.5.3-linux-x64.tar.gz -o /tmp/powershell.tar.gz && \
+RUN curl -L https://github.com/PowerShell/PowerShell/releases/download/v7.4.13/powershell-7.4.13-linux-x64.tar.gz -o /tmp/powershell.tar.gz && \
     mkdir -p /opt/microsoft/powershell/7 && \
     tar zxf /tmp/powershell.tar.gz -C /opt/microsoft/powershell/7 && \
     chmod +x /opt/microsoft/powershell/7/pwsh && \
@@ -16,11 +16,11 @@ RUN curl -L https://github.com/PowerShell/PowerShell/releases/download/v7.5.3/po
 # PowerShell モジュールのインストール
 RUN pwsh -Command "& { \
     Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \
-    Install-Module -Name AWS.Tools.Common -Force -Scope AllUsers; \
-    Install-Module -Name AWS.Tools.Lambda -Force -Scope AllUsers; \
-    Install-Module -Name AWS.Tools.S3 -Force -Scope AllUsers; \
-    Install-Module -Name AWS.Tools.SimpleSystemsManagement -Force -Scope AllUsers; \
-    Install-Module -Name Microsoft.Graph -Force -Scope AllUsers \
+    Install-Module -Name AWS.Tools.Common -Force -Scope AllUsers -RequiredVersion 5.0.104; \
+    Install-Module -Name AWS.Tools.Lambda -Force -Scope AllUsers -RequiredVersion 5.0.104; \
+    Install-Module -Name AWS.Tools.S3 -Force -Scope AllUsers -RequiredVersion 5.0.104; \
+    Install-Module -Name AWS.Tools.SimpleSystemsManagement -Force -Scope AllUsers -RequiredVersion 5.0.104; \
+    Install-Module -Name Microsoft.Graph -Force -Scope AllUsers -RequiredVersion 2.32 \
 }"
 
 # 起動スクリプトを配置

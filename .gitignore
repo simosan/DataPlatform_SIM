@@ -34,3 +34,9 @@ python/settings.txt
 python/command.txt
 python/**/*output.json
 python/CatalogUpdateContainer/work/
+python/**/.python-version
+python/.datalake-env/
+python/DataQuality/.pytest_cache/
+python/DataQuality/__pycache__/
+python/DataQuality/work/
+python/DataQuality/old
