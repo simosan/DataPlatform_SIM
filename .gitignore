@@ -3,6 +3,7 @@
 localstack/
 stepfunctions/
 *output.json
+powershell/ECS-Build-Work_M365GetUserContainer/
 powershell/**/old
 powershell/**/work
 powershell/**/*output.json
@@ -40,3 +41,4 @@ python/DataQuality/.pytest_cache/
 python/DataQuality/__pycache__/
 python/DataQuality/work/
 python/DataQuality/old
+python/ECS-Build-Work_CatalogUpdateContainer

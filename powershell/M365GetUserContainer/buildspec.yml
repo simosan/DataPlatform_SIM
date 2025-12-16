@@ -1,0 +1,41 @@
+version: 0.2
+
+env:
+  variables:
+    # 任意に変更可（ECRのリポジトリ名）
+    IMAGE_REPO_NAME: m365-get-user-container
+    # 指定しなければGitの短SHAを使用
+    IMAGE_TAG: ""
+    # Dockerビルドのコンテキスト（このbuildspecが置かれているディレクトリ）
+    BUILD_CONTEXT: .
+    # 使うDockerfileのパス（相対）
+    DOCKERFILE: Dockerfile_al2023
+    # latest タグも付与・プッシュするか（true/false）
+    PUSH_LATEST: "true"
+
+phases:
+  pre_build:
+    commands:
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      - REPOSITORY_URI=${REGISTRY}/${IMAGE_REPO_NAME}
+      - aws ecr describe-repositories --repository-names ${IMAGE_REPO_NAME} --region ${AWS_DEFAULT_REGION} >/dev/null 2>&1 || aws ecr create-repository --repository-name ${IMAGE_REPO_NAME} --region ${AWS_DEFAULT_REGION}
+      - unset DOCKER_CONTEXT || true
+      - PASS=$(aws ecr get-login-password --region ${AWS_DEFAULT_REGION})
+      - echo "${PASS}" | docker login --username AWS --password-stdin ${REGISTRY}
+      - GIT_SHA=$(echo ${CODEBUILD_RESOLVED_SOURCE_VERSION} | cut -c1-7)
+      - if [ -z "${IMAGE_TAG}" ]; then IMAGE_TAG=${GIT_SHA}; fi
+  build:
+    commands:
+      - docker build -f ${DOCKERFILE} -t ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${BUILD_CONTEXT}
+      - docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}
+      - "if [ \"${PUSH_LATEST}\" = \"true\" ]; then docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:latest; fi"
+  post_build:
+    commands:
+      - docker push ${REPOSITORY_URI}:${IMAGE_TAG}
+      - "if [ \"${PUSH_LATEST}\" = \"true\" ]; then docker push ${REPOSITORY_URI}:latest; fi"
+      # ECS等と連携する場合の成果物（任意）
+      - "printf '[{\"name\":\"%s\",\"imageUri\":\"%s\"}]' \"${IMAGE_REPO_NAME}\" \"${REPOSITORY_URI}:${IMAGE_TAG}\" > imagedefinitions.json"
+artifacts:
+  files:
+    - imagedefinitions.json
