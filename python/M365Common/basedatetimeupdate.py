@@ -21,7 +21,7 @@ def basedatetimeupdate(event, context):
         print(f"[func-error]-[basedatetimeupdate]-[ssm-error] {e}")
         return {
             "statusCode": 500,
-            "message": f"false! {e}"}    
+            "message": f"false! {e}"}
     basedt_key = 'basedatetime/basedatetime.csv'
 
     # 基準日ファイルから基準日を取得

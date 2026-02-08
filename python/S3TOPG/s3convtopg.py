@@ -1,8 +1,8 @@
 # S3のconvertディレクトリ配下のデータをPostgresにインサートするLambda関数
-import psycopg2
+import psycopg
 import pandas as pd
 import boto3
-from io import BytesIO
+from io import BytesIO, StringIO
 
 # groupx/convet/直下のテーブル名のみを抽出し配列化
 def s3_target_list(bucket, tier1and2prefix):
@@ -45,7 +45,7 @@ def getconvdata(bucket_name, tier1and2_prefix, table, base_date):
         "df": df
     }
 
-    
+
 # 基準日データ有無確認→存在していたら重複データのためTrue、存在してなければFalseで返却
 def check_target_duplicate(table,
                            basedate,
@@ -54,19 +54,19 @@ def check_target_duplicate(table,
                            pghost,
                            dbname,
                            schema):
-
+    conn = None
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             user=pguser,
             password=pgpasswd,
             host=pghost,
             dbname=dbname,
             port='5432'
         )
-        cur = conn.cursor()
-        query = f"SELECT COUNT(base_date) FROM {schema}.{table} WHERE base_date = %s"
-        cur.execute(query, (basedate,))
-        count = cur.fetchone()[0]
+        with conn.cursor() as cur:
+            query = f"SELECT COUNT(base_date) FROM {schema}.{table} WHERE base_date = %s"
+            cur.execute(query, (basedate,))
+            count = cur.fetchone()[0]
         print(basedate + ":" + table + ":count:" + str(count))
     except Exception as e:
         print(f"[func-error]-[s3convtopg]-[check_target_duplicate]-[pg_error] {e}")
@@ -74,7 +74,7 @@ def check_target_duplicate(table,
     finally:
         if conn:
            conn.close()
-    
+
     return { "statusCode": 200, "count": count }
 
 
@@ -85,32 +85,35 @@ def insert_targetdata(table,
                       dbname,
                       schema,
                       df):
+    conn = None
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             user=pguser,
             password=pgpasswd,
             host=pghost,
             dbname=dbname,
             port='5432'
-        ) 
-        cur = conn.cursor()   
+        )
+        cur = conn.cursor()
         # DataFrameをCSV形式に変換（ヘッダーなし）
         buffer = StringIO()
         df.to_csv(buffer, header=False, index=False)
         buffer.seek(0)
         # テーブル名は文字列結合で注意
         sql = f"COPY {schema}.{table} FROM STDIN WITH CSV"
-        cur.copy_expert(sql, buffer)
+        with cur.copy(sql) as copy:
+            copy.write(buffer.getvalue())
         conn.commit()
         print(f"[Info] Insert to {schema}.{table} success. Rows: {len(df)}")
     except Exception as e:
         print(f"[func-error]-[s3convtopg]-[insert_targetdata]-[pg_error] {e}")
-        conn.rollback()
+        if conn:
+            conn.rollback()
         return { "statusCode": 500, "message": str(e) }
     finally:
         if conn:
             conn.close()
-   
+
     return { "statusCode": 200, "message": "Insert success" }
 
 
@@ -122,11 +125,11 @@ def s3convtopg(event, context):
             event[group]: {e}")
     group = event['group']
 
-    # parameterストアから必要な値を取得 
+    # parameterストアから必要な値を取得
     ssm = boto3.client('ssm')
     bucket_name = ssm.get_parameter(Name='/m365/common/s3bucket',
                                     WithDecryption=False)['Parameter']['Value']
-   
+
     # 基準日ファイルから基準日を取得
     s3_client = boto3.client('s3')
     try:
@@ -144,8 +147,8 @@ def s3convtopg(event, context):
             "statusCode": 500,
              "message": f"[func-error]-[s3convtopg]-[basedatetime.csv-reading-error] \
                    convert: {e}"}
-    
-    # groupx/convert/配下のテーブルキー取得のためのプレフィックス 
+
+    # groupx/convert/配下のテーブルキー取得のためのプレフィックス
     tier1and2_prefix = group + '/convert/'
     try:
         tables = s3_target_list(bucket_name, tier1and2_prefix)
@@ -157,7 +160,7 @@ def s3convtopg(event, context):
             "statusCode": 500,
             "message": f"[func-error]-[s3convtopg]-[s3listobject-error] \
                 convert: {e}"}
-            
+
     # parameterストアからデータストア（Postgres）の情報を取得
     ssm = boto3.client('ssm')
     pguser = ssm.get_parameter(Name='/m365/common/pg/' + group + '/pguser',
@@ -167,10 +170,10 @@ def s3convtopg(event, context):
     pghost = ssm.get_parameter(Name='/m365/common/pg/' + group + '/pghost',
                                 WithDecryption=False)['Parameter']['Value']
     dbname = ssm.get_parameter(Name='/m365/common/pg/' + group + '/dbname',
-                                WithDecryption=False)['Parameter']['Value']    
+                                WithDecryption=False)['Parameter']['Value']
     schema = ssm.get_parameter(Name='/m365/common/pg/' + group + '/schema',
                                 WithDecryption=False)['Parameter']['Value']
-   # テーブル単位で、基準日付データ有無確認、Postgresへのデータインサート 
+   # テーブル単位で、基準日付データ有無確認、Postgresへのデータインサート
     for table in tables:
         # Postgresへ接続し、テーブルに基準日のデータがすでに存在していないかをチェック（重複データ有無）
         # 存在していたら後続処理はスキップ
@@ -211,4 +214,4 @@ def s3convtopg(event, context):
             continue
     return {
         "statusCode": 200,
-        "message": "success"}    
+        "message": "success"}

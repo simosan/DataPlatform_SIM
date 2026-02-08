@@ -12,39 +12,6 @@ Parameters:
 
 Resources:
   ##########################################################################
-  # IAM ロール（Lambda用）                                                  #
-  ##########################################################################
-  LambdaM365GetGroupRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: M365GetGroupSSMPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - kms:Decrypt
-                Resource:
-                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
-              - Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource:
-                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365Auth
-                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365CollectS3Export
-                  - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:M365CollectS3KeyDelete
-
-  ##########################################################################
   # Lambda関数（M365グループ情報取得関数）
   ##########################################################################
   M365GetUserFunction:
@@ -59,7 +26,7 @@ Resources:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
       MemorySize: 512
-      Role: !GetAtt LambdaM365GetGroupRole.Arn
+      Role: !Ref LambdaRole
       Architectures:
         - arm64
       Environment:

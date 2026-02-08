@@ -8,79 +8,11 @@ Parameters:
     Default: "SimPwshRuntimeLayer"
   LayerVersion:
     Type: Number
-    Default: 1 
+    Default: 1
 
 Resources:
   ##########################################################################
-  # IAM ロール（Lambda用）                                                  #
-  ##########################################################################
-  LambdaM365CommonRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: M365GetUserSSMPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - kms:Decrypt
-                Resource:
-                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
-
-  LambdaAWSCommonRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: LambdaCommonSSMPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - ssm:GetParameter
-                  - kms:Decrypt
-                Resource:
-                  - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/m365/*
-        - PolicyName: LambdaCommonS3Policy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:ListBucket
-                Resource:
-                  - Fn::Sub: arn:aws:s3:::m365-dwh
-
-              - Effect: Allow
-                Action:
-                  - S3:Get*
-                  - S3:Put*
-                  - S3:Delete*
-                Resource:
-                  - Fn::Sub: arn:aws:s3:::m365-dwh/*
-
-  ##########################################################################
-  # Lambda関数（M365認証関数）                                       
+  # Lambda関数（M365認証関数）
   ##########################################################################
   M365Auth:
     Type: AWS::Serverless::Function
@@ -94,15 +26,15 @@ Resources:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
       MemorySize: 512
-      Role: !GetAtt LambdaM365CommonRole.Arn
+      Role: !Ref LambdaRole
       Architectures:
         - arm64
       Environment:
-        Variables: 
+        Variables:
           POWERSHELL_RUNTIME_VERBOSE: TRUE
 
   ##########################################################################
-  # Lambda関数（S3ファイル出力）                                       
+  # Lambda関数（S3ファイル出力）
   ##########################################################################
   M365CollectS3Export:
     Type: AWS::Serverless::Function
@@ -116,15 +48,15 @@ Resources:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
       MemorySize: 512
-      Role: !GetAtt LambdaAWSCommonRole.Arn
+      Role: !Ref LambdaRole
       Architectures:
         - arm64
       Environment:
-        Variables: 
+        Variables:
           POWERSHELL_RUNTIME_VERBOSE: TRUE
 
   ##########################################################################
-  # Lambda関数（S3キー削除）                                       
+  # Lambda関数（S3キー削除）
   ##########################################################################
   M365CollectS3KeyDelete:
     Type: AWS::Serverless::Function
@@ -138,9 +70,9 @@ Resources:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
       MemorySize: 512
-      Role: !GetAtt LambdaAWSCommonRole.Arn
+      Role: !Ref LambdaRole
       Architectures:
         - arm64
       Environment:
-        Variables: 
+        Variables:
           POWERSHELL_RUNTIME_VERBOSE: TRUE

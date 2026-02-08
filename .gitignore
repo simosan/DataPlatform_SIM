@@ -14,6 +14,7 @@ powershell/**/output.json
 powershell/**/samconfig.toml
 powershell/M365GetUser-Docker/.aws-sam/
 powershell/module_work/
+powershell/M365GetUserContainer_cbvpc
 **/parminit.sh
 powershell/samconfig.toml
 powershell/template.yml
@@ -23,6 +24,7 @@ python/**/.pytest_cache/
 python/**/old
 python/layers_work/
 python/layers_work_makefile/
+python/layers_cbvpc_work
 python/M365Common/samconfig.toml
 python/M365ConvGroup/samconfig.toml
 python/M365ConvUser/samconfig.toml
@@ -42,3 +44,5 @@ python/DataQuality/__pycache__/
 python/DataQuality/work/
 python/DataQuality/old
 python/ECS-Build-Work_CatalogUpdateContainer
+python/CatalogUpdateContainer_cbvpc
+python/CatalogUpdateContainer_cbvpc2
