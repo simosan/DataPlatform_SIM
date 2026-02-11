@@ -1,11 +1,17 @@
 version = 0.1
 
 [default.deploy.parameters]
-stack_name = "sam-psappfunc-m365common-test"
-resolve_s3 = true
-s3_prefix = "sam-psappfunc-m365-common-test"
-region = "ap-northeast-1"
-profile =
+# vpc
+#stack_name = ""
+#s3_prefix = ""
+#parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionNameM365Auth=M365AuthVpc FunctionNameM365CollectS3Export=M365CollectS3ExportVpc FunctionNameM365CollectS3KeyDelete=M365CollectS3KeyDeleteVpc"
+# not-vpc
+stack_name = "sam-pwshfunc-m365common"
+s3_prefix = "tmp/sam-pwshfunc-m365common"
+parameter_overrides = "isVPC=false LambdaRole=arn:aws:iam::xxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionNameM365Auth=M365Auth FunctionNameM365CollectS3Export=M365CollectS3Export FunctionNameM365CollectS3KeyDelete=M365CollectS3KeyDelete"
+
+s3_bucket = ""
+region = ""
+profile = ""
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
-LambdaRole = ""

@@ -3,15 +3,37 @@ Transform: AWS::Serverless-2016-10-31
 Description: aws-lambda-python-commoncol-runtime
 
 Parameters:
+  isVPC:
+    Description: "Deploy Lambda in VPC (true/false)."
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
   LayerName:
     Type: String
     Default: "SimPythonRuntimeLayer"
   LayerVersion:
     Type: Number
-    Default: 10
   LambdaRole:
     Type: String
     Description: IAM Role ARN for Lambda functions
+  FunctionNameM365cols3import:
+    Type: String
+  FunctionNameM365cols3list:
+    Type: String
+  FunctionNameBasedatetimeupdate:
+    Type: String
+  VpcSubnetIds:
+    Description: "Subnet IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+  VpcSecurityGroupIds:
+    Description: "Security Group IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+Conditions:
+  UseVPC: !Equals [!Ref isVPC, "true"]
 
 Resources:
   ##########################################################################
@@ -20,7 +42,7 @@ Resources:
   M365ColS3ImportFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: m365cols3import
+      FunctionName: !Ref FunctionNameM365cols3import
       PackageType: Zip
       Handler: m365cols3import.m365cols3import
       Runtime: python3.13
@@ -30,6 +52,11 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
 
@@ -39,7 +66,7 @@ Resources:
   M365cols3listFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: m365cols3list
+      FunctionName: !Ref FunctionNameM365cols3list
       PackageType: Zip
       Handler: m365cols3list.m365cols3list
       Runtime: python3.13
@@ -49,6 +76,11 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
 
@@ -58,7 +90,7 @@ Resources:
   BasedatetimeUpdateFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: basedatetimeupdate
+      FunctionName: !Ref FunctionNameBasedatetimeupdate
       PackageType: Zip
       Handler: basedatetimeupdate.basedatetimeupdate
       Runtime: python3.13
@@ -68,5 +100,10 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64

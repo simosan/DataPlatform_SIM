@@ -3,12 +3,39 @@ Transform: AWS::Serverless-2016-10-31
 Description: aws-lambda-python-convuser-runtime
 
 Parameters:
+  isVPC:
+    Description: "Deploy Lambda in VPC (true/false)."
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
   LayerName:
+    Description: "Input lambda layer name."
     Type: String
     Default: "SimPythonRuntimeLayer"
   LayerVersion:
+    Description: "Input lambda layer version."
     Type: Number
-    Default: 1
+    Default: 10
+  LambdaRole:
+    Type: String
+    Description: IAM Role ARN for Lambda functions
+  FunctionName:
+    Type: String
+    Description: "Input Lambda function name."
+
+  VpcSubnetIds:
+    Description: "Subnet IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+  VpcSecurityGroupIds:
+    Description: "Security Group IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+Conditions:
+  UseVPC: !Equals [!Ref isVPC, "true"]
+
 
 Resources:
   ##########################################################################
@@ -17,7 +44,7 @@ Resources:
   M365ConvGroupFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: m365convgroup
+      FunctionName: !Ref FunctionName
       PackageType: Zip
       Handler: m365convgroup.m365convgroup
       Runtime: python3.13
@@ -27,8 +54,11 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
-      Environment:
-        Variables:
-          POWERSHELL_RUNTIME_VERBOSE: TRUE
+

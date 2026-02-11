@@ -35,7 +35,20 @@ def load_ruleset_from_s3(tablelist):
 
     for table in tables:
         key = f"rulesets/{table}_ruleset.json"
-        obj = s3.get_object(Bucket=bucket, Key=key)
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=key)
+        except Exception as e:
+            # 指定キー（テーブルに紐づくルールセット）が存在しない場合はスキップ
+            response = getattr(e, "response", None)
+            err = response.get("Error", {})
+            code = err.get("Code")
+            status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if code in {"NoSuchKey", "NotFound", "404"} or status == 404:
+                print(
+                    f"[Info]-[dataquality]-[load_ruleset_from_s3] ルール定義が存在しないためスキップ: table={table} key={key}"
+                )
+                continue
+            raise
         ruleset = json.loads(obj["Body"].read().decode("utf-8"))
 
         # スキーマ正規化

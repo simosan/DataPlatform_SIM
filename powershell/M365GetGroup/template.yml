@@ -3,12 +3,34 @@ Transform: AWS::Serverless-2016-10-31
 Description: aws-lambda-powershell-getgroup-runtime
 
 Parameters:
+  isVPC:
+    Description: "Deploy Lambda in VPC (true/false)."
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
   LayerName:
     Type: String
     Default: "SimPwshRuntimeLayer"
   LayerVersion:
     Type: Number
-    Default: 1
+  LambdaRole:
+    Type: String
+    Description: IAM Role ARN for Lambda functions
+  FunctionName:
+    Type: String
+    Description: "Input Lambda function name."
+  VpcSubnetIds:
+    Description: "Subnet IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+  VpcSecurityGroupIds:
+    Description: "Security Group IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+Conditions:
+  UseVPC: !Equals [!Ref isVPC, "true"]
 
 Resources:
   ##########################################################################
@@ -17,7 +39,7 @@ Resources:
   M365GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: M365GetGroup
+      FunctionName: !Ref FunctionName
       PackageType: Zip
       Handler: M365GetGroup.ps1::M365GetGroup
       Runtime: provided.al2
@@ -27,8 +49,11 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
-      Environment:
-        Variables:
-          POWERSHELL_RUNTIME_VERBOSE: TRUE
+

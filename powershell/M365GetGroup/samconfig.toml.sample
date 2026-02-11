@@ -1,11 +1,17 @@
 version = 0.1
 
 [default.deploy.parameters]
-stack_name = "sam-psappfunc-m365getgroup-test"
-resolve_s3 = true
-s3_prefix = "sam-psappfunc-m365getgroup-test"
-region = "ap-northeast-1"
-profile =
+# vpc
+#stack_name = ""
+#s3_prefix = ""
+#parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionName=M365GetGroupVpc"
+# not-vpc
+stack_name = "sam-pwshfunc-m365getgroup"
+s3_prefix = "tmp/sam-pwshfunc-m365getgroup"
+parameter_overrides = "isVPC=false LambdaRole=arn:aws:iam::xxxxxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionName=M365GetGroup"
+
+s3_bucket = ""
+region = ""
+profile = ""
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
-LambdaRole = ""

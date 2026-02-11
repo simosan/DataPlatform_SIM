@@ -3,12 +3,37 @@ Transform: AWS::Serverless-2016-10-31
 Description: aws-lambda-powershell-m365common
 
 Parameters:
+  isVPC:
+    Description: "Deploy Lambda in VPC (true/false)."
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
   LayerName:
     Type: String
     Default: "SimPwshRuntimeLayer"
   LayerVersion:
     Type: Number
-    Default: 1
+  LambdaRole:
+    Type: String
+    Description: IAM Role ARN for Lambda functions
+  FunctionNameM365Auth:
+    Type: String
+  FunctionNameM365CollectS3Export:
+    Type: String
+  FunctionNameM365CollectS3KeyDelete:
+    Type: String
+  VpcSubnetIds:
+    Description: "Subnet IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+  VpcSecurityGroupIds:
+    Description: "Security Group IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+Conditions:
+  UseVPC: !Equals [!Ref isVPC, "true"]
 
 Resources:
   ##########################################################################
@@ -17,7 +42,7 @@ Resources:
   M365Auth:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: M365Auth
+      FunctionName: !Ref FunctionNameM365Auth
       PackageType: Zip
       Handler: M365Auth.ps1::M365Auth
       Runtime: provided.al2
@@ -27,11 +52,17 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
+      # If set TRUE, output verbose logs.
       Environment:
         Variables:
-          POWERSHELL_RUNTIME_VERBOSE: TRUE
+          POWERSHELL_RUNTIME_VERBOSE: FALSE
 
   ##########################################################################
   # Lambda関数（S3ファイル出力）
@@ -39,7 +70,7 @@ Resources:
   M365CollectS3Export:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: M365CollectS3Export
+      FunctionName: !Ref FunctionNameM365CollectS3Export
       PackageType: Zip
       Handler: M365CollectS3Export.ps1::M365CollectS3Export
       Runtime: provided.al2
@@ -49,11 +80,17 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
+      # If set TRUE, output verbose logs.
       Environment:
         Variables:
-          POWERSHELL_RUNTIME_VERBOSE: TRUE
+          POWERSHELL_RUNTIME_VERBOSE: FALSE
 
   ##########################################################################
   # Lambda関数（S3キー削除）
@@ -61,7 +98,7 @@ Resources:
   M365CollectS3KeyDelete:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: M365CollectS3KeyDelete
+      FunctionName: !Ref FunctionNameM365CollectS3KeyDelete
       PackageType: Zip
       Handler: M365CollectS3KeyDelete.ps1::M365CollectS3KeyDelete
       Runtime: provided.al2
@@ -71,8 +108,14 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
       Architectures:
         - arm64
+      # If set TRUE, output verbose logs.
       Environment:
         Variables:
-          POWERSHELL_RUNTIME_VERBOSE: TRUE
+          POWERSHELL_RUNTIME_VERBOSE: FALSE

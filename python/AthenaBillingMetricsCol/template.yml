@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: aws-lambda-python-convuser-runtime
+Description: aws-lambda-python-commoncol-runtime
 
 Parameters:
   isVPC:
@@ -38,18 +38,16 @@ Conditions:
 
 Resources:
   ##########################################################################
-  # Lambda関数（M365ユーザ情報変換関数）
+  # Lambda関数（Athena課金）
   ##########################################################################
-  M365ConvUserFunction:
+  AthenaBillingMetrics:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Ref FunctionName
       PackageType: Zip
-      Handler: m365convuser.m365convuser
+      Handler: getathenabilmetrics.get_athena_billing_metrics
       Runtime: python3.13
       CodeUri: ./
-      EphemeralStorage:
-        Size: 10240
       Layers:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
