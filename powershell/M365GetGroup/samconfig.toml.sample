@@ -4,7 +4,7 @@ version = 0.1
 # vpc
 #stack_name = ""
 #s3_prefix = ""
-#parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionName=M365GetGroupVpc"
+#parameter_overrides = "isVPC=true ProxyUrl=http://proxy.example.com:8080 VpcSubnetIds=subnet-xxxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionName=M365GetGroupVpc"
 # not-vpc
 stack_name = "sam-pwshfunc-m365getgroup"
 s3_prefix = "tmp/sam-pwshfunc-m365getgroup"

@@ -10,6 +10,10 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
+  ProxyUrl:
+    Description: "Outbound proxy URL (used only when isVPC=true). Example: http://host:port"
+    Type: String
+    Default: ""
   LayerName:
     Type: String
     Default: "SimPwshRuntimeLayer"
@@ -31,6 +35,9 @@ Parameters:
     Default: ""
 Conditions:
   UseVPC: !Equals [!Ref isVPC, "true"]
+  UseProxy: !And
+    - !Condition UseVPC
+    - !Not [!Equals [!Ref ProxyUrl, ""]]
 
 Resources:
   ##########################################################################
@@ -49,6 +56,16 @@ Resources:
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
+      Environment: !If
+        - UseProxy
+        - Variables:
+            HTTP_PROXY: !Ref ProxyUrl
+            HTTPS_PROXY: !Ref ProxyUrl
+            # Lambda runtime (local) / metadata should never go through proxy
+            # Also bypass AWS service endpoints; AWS SDK calls (Lambda/SSM/etc.) should not be forced through the outbound proxy.
+            NO_PROXY: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,amazonaws.com,.amazonaws.com"
+            no_proxy: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,amazonaws.com,.amazonaws.com"
+        - !Ref AWS::NoValue
       VpcConfig: !If
         - UseVPC
         - SubnetIds: !Ref VpcSubnetIds

@@ -35,7 +35,7 @@ function M365Auth {
             $headers[$_.Name] = $_.Value
         }
     } catch {
-        Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+        Write-Host "[Func-Error]-[M365GetGroup]-[Invoke-LMLambdaFunction failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"
         throw
     }
@@ -74,7 +74,7 @@ function CallM365CollectS3KeyDelete {
 
         if ($response.FunctionError) {
             $errorPayload = $resultJson | ConvertFrom-Json
-            Write-Host "[Func-Error]-[M365GetUser]-[CallM365CollectS3KeyDelete:LambdaResponseError] `
+            Write-Host "[Func-Error]-[M365GetGroup]-[CallM365CollectS3KeyDelete:LambdaResponseError] `
                 $($errorPayload.errorMessage)"
             throw $errorPayload
         } else {
@@ -82,7 +82,7 @@ function CallM365CollectS3KeyDelete {
             Write-Host "[Func-Success] Batch ${key}: $($result | Out-String)"
         }
     } catch {
-        Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
+        Write-Host "[Func-Error]-[M365GetGroup]-[Invoke-LMLambdaFunction failed] $_"
         throw
     }
 }
