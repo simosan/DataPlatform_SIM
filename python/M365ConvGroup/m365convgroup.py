@@ -115,7 +115,10 @@ def m365convgroup(event, context):
     target_key = ssm.get_parameter(Name='/m365/common/pipelineconv',
                                     WithDecryption=False)['Parameter']['Value']
     # データ取得対象グループ,テーブル
-    group = "group1"
+    group = event.get("group")
+    if not group:
+        print(f"[Func-ERROR]-[m365convgroup]-[InvalidInput] group is required.")
+        return json.dumps({ "status": "failed" })
     targetdataname = "m365getgroup"
 
     # 取得対象キーに格納された一覧を取得（単一キー、複数キーの違いはなし）
