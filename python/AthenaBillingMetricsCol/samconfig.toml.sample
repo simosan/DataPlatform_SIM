@@ -4,11 +4,7 @@ version = 0.1
 # vpc
 stack_name = ""
 s3_prefix = ""
-parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerVersion=10 FunctionName=m365AthenaBillingMetricsVpc"
-# not-vpc
-#stack_name = ""
-#s3_prefix = ""
-#parameter_overrides = "isVPC=false LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerVersion=10 FunctionName=m365AthenaBillingMetrics"
+parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerName=xxxxxxx LayerVersion=10 FunctionName=m365AthenaBillingMetricsVpc"
 
 s3_bucket = ""
 region = ""

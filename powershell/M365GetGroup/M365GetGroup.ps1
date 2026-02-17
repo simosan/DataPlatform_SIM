@@ -21,7 +21,7 @@ try {
 function M365Auth {
     try {
         $invokeParams = @{
-            FunctionName    = "M365Auth"
+            FunctionName    = "M365AuthVpc"
             InvocationType  = "RequestResponse"
         }
         $response = Invoke-LMFunction @invokeParams
@@ -34,13 +34,13 @@ function M365Auth {
         $authObject.PSObject.Properties | ForEach-Object {
             $headers[$_.Name] = $_.Value
         }
+        return $headers
+
     } catch {
         Write-Host "[Func-Error]-[M365GetGroup]-[Invoke-LMLambdaFunction failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"
         throw
     }
-
-    return $headers
 }
 
 
@@ -62,7 +62,7 @@ function CallM365CollectS3KeyDelete {
     }
     $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
     $invokeParams = @{
-        FunctionName    = "M365CollectS3KeyDelete"
+        FunctionName    = "M365CollectS3KeyDeleteVpc"
         InvocationType  = "RequestResponse"
         Payload         = $payloadJson
     }
@@ -74,7 +74,7 @@ function CallM365CollectS3KeyDelete {
 
         if ($response.FunctionError) {
             $errorPayload = $resultJson | ConvertFrom-Json
-            Write-Host "[Func-Error]-[M365GetGroup]-[CallM365CollectS3KeyDelete:LambdaResponseError] `
+            Write-Host "[Func-Error]-[M365GetGroup]-[CallM365CollectS3KeyDeleteVpc:LambdaResponseError] `
                 $($errorPayload.errorMessage)"
             throw $errorPayload
         } else {
@@ -112,11 +112,21 @@ function M365GetGroup {
     }
 
     ## M365Auth関数呼び出し-認証ヘッダ取得
-    $headers = M365Auth
+    try {
+        $headers = M365Auth
+    } catch {
+        Write-Host "[Func-Error]-[M365GetGroup]-[M365Auth failed] $_"
+        Write-Host "ErrorDetails: $($_.Exception | Out-String)"
+        return @{ status = "failed"} | ConvertTo-Json -Compress
+    }
 
     # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
     $targetdataname = "m365getgroup"
-    $group          = "group1"
+    $group = $LambdaInput.group
+    if ($null -eq $group) {
+        Write-Host "[Func-Error]-[M365GetGroup]-[InvalidInput] groupが指定されていません。"
+        return @{ status = "failed"} | ConvertTo-Json -Compress
+    }
     CallM365CollectS3KeyDelete -targetdataname $targetdataname `
                                 -group $group `
                                 -basedate $basedate
@@ -129,7 +139,7 @@ function M365GetGroup {
     } catch {
         Write-Host "[Func-Error]-[M365GetGroup]-[Invoke-RestMethod failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"
-        throw
+        return @{ status = "failed"} | ConvertTo-Json -Compress
     }
 
     # PSCustomObject配列オブジェクトにデータ格納
@@ -148,8 +158,8 @@ function M365GetGroup {
     $payloadObj = @{
         body = $groups
         is_gzip = $false
-        targetdataname = "m365getgroup"
-        group = "group1"
+        targetdataname = $targetdataname
+        group = $group
         basedate = $basedate
         fromtimestamp = $fromtimestamp
         totimestamp   = $totimestamp
@@ -158,7 +168,7 @@ function M365GetGroup {
     $payloadJson = $payloadObj | ConvertTo-Json -Depth 10 -Compress
 
     $invokeParams = @{
-        FunctionName    = "M365CollectS3Export"
+        FunctionName    = "M365CollectS3ExportVpc"
         InvocationType  = "RequestResponse"
     }
 
@@ -182,7 +192,7 @@ function M365GetGroup {
     } catch {
         Write-Host "[Func-Error]-[M365GetGroup]-[Invoke-LMLambdaFunction failed] $_"
         Write-Host "ErrorDetails: $($_.Exception | Out-String)"
-        throw
+        return @{ status = "failed"} | ConvertTo-Json -Compress
     }
 
     return @{ status = "success" } | ConvertTo-Json -Compress

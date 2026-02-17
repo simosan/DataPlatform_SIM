@@ -1,23 +1,26 @@
-# CloudwatchからAthenaメトリクス（ProcessedBytes）を取得する。
+# AthenaからAthenaクエリ履歴を取得する。
 # Athenaワークグループ単位で取得する。
-# 基準日はJSTで指定するが、CloudwatchはUTCで指定する必要があるので変換する。
+# 取得Athenaワークグループは、/m365/athenabillingmetrics/workgroups から取得する。
+# 基準日はJSTで指定するが、AthenaはUTCで指定する必要があるので変換する。
 # S3の出力はM365CollectS3Export関数（Lambda）を呼び出して行う。
 # 出力形式は以下の通り。
 '''
 {
-    "workgroup": "AthenaWorkGroup名",
-    "basedate_jst": "yyyy-mm-dd（基準日)",
-    "period_seconds": 86400（1日分）,
-    "start_utc": "2025-09-04T15:00:00Z（集計対象開始日時：UTC）",
-    "end_utc": "2025-09-05T15:00:00Z"(集計対象終了日時：UTC）",
-    "consumed_bytes_per_workgroup": "Athenaワークグループで消費したバイト数",
-    "consumed_tb_per_workgroup": "Athenaワークグループで消費したテラバイト数",
-    "usd_per_tb": "1TBあたりのUSD単価（浮動小数点10桁）",
-    "usd": "Athenaワークグループで消費したUSD金額"
+    "QueryExecutionId": "クエリ実行ID",
+    "Query": "クエリ内容",
+    "Status": "クエリ実行状態",
+    "SubmissionTime": "クエリ開始時刻 2026-02-13T22:04:01.217000+09:00（JST表記）",
+    "CompletionTime": "クエリ終了時刻 2026-02-13T22:04:02.584000+09:00（JST表記）",
+    "WorkGroup": "Athenaワークグループ名",
+    "Database": "Glue Data Catalogのデータベース名",
+    "Catalog": "Glue Data Catalogのカタログ名",
+    "BytesScanned": "スキャンしたバイト数",
+    "ExecutionTimeMillis": "クエリ実行時間（ミリ秒）",
+    "EngineExecutionTimeMillis": "クエリエンジン実行時間（ミリ秒）",
+    "EngineVersion": "Athenaエンジンバージョン"
 },
 {...}
 '''
-
 import boto3
 import json
 import re
@@ -25,10 +28,7 @@ from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
 
-
 JST = ZoneInfo("Asia/Tokyo")
-TB_IN_BYTES = Decimal(1024) ** 4  # 1024^4 = 1099511627776
-USD_QUANTIZE_10DP = Decimal("0.0000000000")
 
 # Athenaのクエリ実行時間はJSTで指定された基準日（basedate）に基づいて、UTCの開始日時と終了日時を計算する必要がある。
 # naの場合は基準日を昨日に設定する。基準日が指定された場合は、その日付を基準にする。
@@ -42,7 +42,7 @@ def _resolve_base_date(basedate: str) -> date:
 
 def _resolve_time_range(basedate: str) -> tuple[datetime, datetime, date]:
     # basedate を基準に JST の 00:00 -> 翌 00:00 の期間を UTC に変換して返す
-    # UTC変換後の日時はcloudwatch呼び出しに使用する
+    # UTC変換後の日時はAthena呼び出しに使用する
     base_date_jst = _resolve_base_date(basedate)
     start_jst = datetime(base_date_jst.year, base_date_jst.month, base_date_jst.day, \
                         0, 0, 0, tzinfo=JST)
@@ -53,7 +53,7 @@ def _resolve_time_range(basedate: str) -> tuple[datetime, datetime, date]:
         base_date_jst,
     )
 
-
+# SSMから取得したワークグループ文字列（CSV）をリストに変換する関数
 def _parse_workgroups(value: str) -> list[str]:
     raw = (value or "").strip()
     if not raw:
@@ -69,29 +69,6 @@ def _parse_workgroups(value: str) -> list[str]:
             pass
 
     return [x.strip() for x in raw.split(",") if x.strip()]
-
-
-def _sum_processed_bytes(datapoints: list[dict]) -> Decimal:
-    total = Decimal(0)
-    # 通常はワークグループに対してdatapointsは1件のみだが、
-    # get_metric_statisticsの仕様上複数件返る可能性があるため合算する
-    for dp in datapoints or []:
-        v = dp.get("Sum")
-        if v is None:
-            continue
-        total += Decimal(str(v))
-    return total
-
-# bytes to terabytes変換関数
-def _bytes_to_tb(bytes_value: Decimal) -> Decimal:
-    return (bytes_value / TB_IN_BYTES) if bytes_value else Decimal(0)
-
-# USD計算関数
-def _calc_usd(tb_value: Decimal, usd_per_tb: Decimal) -> Decimal:
-    # 金額（USD）のみを返す。小数10桁に丸める。
-    usd = (tb_value * usd_per_tb) if tb_value else Decimal(0)
-    return usd.quantize(USD_QUANTIZE_10DP, rounding=ROUND_HALF_UP)
-
 
 ## 既存S3キー削除関数（M365CollectS3KeyDelete） 呼び出し
 def call_collect_S3KeyDelete(targetdataname, group, basedate):
@@ -147,13 +124,13 @@ def call_collect_S3KeyDelete(targetdataname, group, basedate):
 
 
 # main関数
-def get_athena_billing_metrics(event, context):
+def get_athena_query_history(event, context):
     # リカバリ用に関数入力パラメータから基準日を取得（未使用：na, リカバリ用：yyyy-mm-dd形式）
     if event.get('basedate') is None or event.get('basedate') == "na":
         basedate = "na"
     else:
         if not re.match(r'^\d{4}-\d{2}-\d{2}$', event['basedate']):
-            print(f"[Func-ERROR]-[get_athena_billing_metrics]-[InvalidInput]"
+            print(f"[Func-ERROR]-[get_athena_query_history]-[InvalidInput]"
                   "basedate: {event['basedate']} basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。")
             return json.dumps({ "status": "failed" })
 
@@ -168,16 +145,16 @@ def get_athena_billing_metrics(event, context):
                                        WithDecryption=False)['Parameter']['Value']
     workgroups = _parse_workgroups(workgroups_raw)
     if not workgroups:
-        print(f"[Func-ERROR]-[get_athena_billing_metrics]- \
+        print(f"[Func-ERROR]-[get_athena_query_history]- \
                         [InvalidConfig] {SSM_WORKGROUPS_PARAM} is empty")
         return json.dumps({ "status": "failed" })
 
     # データ取得対象グループ,テーブル指定
     group = event.get("group")
     if not group:
-        print(f"[Func-ERROR]-[get_athena_billing_metrics]-[InvalidInput] group is required.")
+        print(f"[Func-ERROR]-[get_athena_query_history]-[InvalidInput] group is required.")
         return json.dumps({ "status": "failed" })
-    targetdataname = "athenabillingmetrics"
+    targetdataname = "athenaqueryhistory"
 
     # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
     try:
@@ -187,7 +164,7 @@ def get_athena_billing_metrics(event, context):
             basedate,
         )
     except Exception as e:
-        print(f"[Func-ERROR]-[get_athena_billing_metrics]-[S3KeyDelete] {e}")
+        print(f"[Func-ERROR]-[get_athena_query_history]-[S3KeyDelete] {e}")
         return json.dumps({ "status": "failed" })
 
     # 基準日からUTCの開始日時、終了日時を計算する
@@ -200,10 +177,6 @@ def get_athena_billing_metrics(event, context):
         fromtimestamp = f"{base_date_jst.strftime('%Y-%m-%d')} 00:00"
         totimestamp = f"{base_date_jst.strftime('%Y-%m-%d')} 23:59"
 
-    cloudwatch = session.client('cloudwatch')
-    per_workgroup_results: list[dict] = []
-    total_bytes_all_workgroups = Decimal(0)
-
     export_payload = {
         "is_gzip": False,
         "targetdataname": targetdataname,
@@ -214,53 +187,73 @@ def get_athena_billing_metrics(event, context):
         export_payload["fromtimestamp"] = fromtimestamp
         export_payload["totimestamp"] = totimestamp
 
-    # 固定値
-    ATHENA_NAMESPACE = "AWS/Athena"
-    ATHENA_METRIC_NAME = "ProcessedBytes"
-    PERIOD_SECONDS = 86400  # 1日（24時間）
-    USD_PER_TB_PARAM = "/m365/athenabillingmetrics/usd_per_tb"
-    USD_PER_TB = Decimal(ssm.get_parameter(Name=USD_PER_TB_PARAM,
-                                WithDecryption=False)['Parameter']['Value'])
-
+    # Athenaクエリ履歴の取得とS3出力（M365CollectS3Export関数呼び出し）を実行
     try:
+        athena = session.client("athena")
         lambda_client = session.client('lambda')
 
+        query_results: list[dict] = []
+
         for wg in workgroups:
-            resp = cloudwatch.get_metric_statistics(
-                Namespace=ATHENA_NAMESPACE,
-                MetricName=ATHENA_METRIC_NAME,
-                StartTime=start_utc,
-                EndTime=end_utc,
-                Period=PERIOD_SECONDS,
-                Statistics=['Sum'],
-                Dimensions=[{'Name': 'WorkGroup', 'Value': wg}],
-            )
-            # respの形式は以下
-            # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_metric_statistics.html#
-            bytes_per_workgroup = _sum_processed_bytes(resp.get('Datapoints', []))
-            total_bytes_all_workgroups += bytes_per_workgroup
-            tb_per_workgroup = _bytes_to_tb(bytes_per_workgroup)
-            usd_per_workgroup = _calc_usd(tb_per_workgroup, USD_PER_TB)
+            next_token = None
+            stop_paging = False
 
-            record = {
-                "workgroup": wg,
-                "basedate_jst": base_date_jst.strftime("%Y-%m-%d"),
-                "period_seconds": PERIOD_SECONDS,
-                "start_utc": start_utc.isoformat().replace("+00:00", "Z"),
-                "end_utc": end_utc.isoformat().replace("+00:00", "Z"),
-                "consumed_bytes_per_workgroup": int(bytes_per_workgroup.to_integral_value(rounding=ROUND_HALF_UP)),
-                "consumed_tb_per_workgroup": float(tb_per_workgroup),
-                "usd_per_tb": float(USD_PER_TB),
-                "usd": format(usd_per_workgroup, "f"),
-            }
-            per_workgroup_results.append(record)
+            while True:
+                params: dict = {
+                    "WorkGroup": wg,
+                    "MaxResults": 50,
+                }
+                if next_token:
+                    params["NextToken"] = next_token
 
-            # stdout: ワークグループ単位で標準出力（CloudWatch Logsに保存される）
-            print(json.dumps(record, ensure_ascii=False, default=str))
+                resp = athena.list_query_executions(**params)
 
-        # S3 export: 複数WorkGroupを1つのJSON（配列）として出力
+                for qid in resp.get("QueryExecutionIds", []):
+                    qexec = athena.get_query_execution(QueryExecutionId=qid).get("QueryExecution", {})
+                    status = qexec.get("Status", {})
+                    submission_time = status.get("SubmissionDateTime")
+                    if not submission_time:
+                        continue
+
+                    # list_query_executions は新しい順で返る前提で、開始日時より古くなったら打ち切る
+                    if submission_time < start_utc:
+                        stop_paging = True
+                        break
+                    if submission_time >= end_utc:
+                        continue
+
+                    completion_time = status.get("CompletionDateTime")
+                    context_info = qexec.get("QueryExecutionContext", {})
+                    stats = qexec.get("Statistics", {})
+
+                    record = {
+                        "QueryExecutionId": qexec.get("QueryExecutionId", qid),
+                        "Query": qexec.get("Query", ""),
+                        "Status": status.get("State", ""),
+                        "SubmissionTime": submission_time.astimezone(JST).isoformat(),
+                        "CompletionTime": completion_time.astimezone(JST).isoformat() if completion_time else None,
+                        "WorkGroup": qexec.get("WorkGroup", wg),
+                        "Database": context_info.get("Database", ""),
+                        "Catalog": context_info.get("Catalog", ""),
+                        "BytesScanned": stats.get("DataScannedInBytes", 0),
+                        "ExecutionTimeMillis": stats.get("TotalExecutionTimeInMillis", 0),
+                        "EngineExecutionTimeMillis": stats.get("EngineExecutionTimeInMillis", 0),
+                        "EngineVersion": qexec.get("EngineVersion", {}).get("SelectedEngineVersion", ""),
+                    }
+                    query_results.append(record)
+
+                    # stdout: 1件ずつ標準出力（CloudWatch Logsに保存される）
+                    print(json.dumps(record, ensure_ascii=False, default=str))
+
+                if stop_paging:
+                    break
+
+                next_token = resp.get("NextToken")
+                if not next_token:
+                    break
+
         payload = dict(export_payload)
-        payload["body"] = per_workgroup_results
+        payload["body"] = query_results
 
         response = lambda_client.invoke(
             FunctionName='M365CollectS3ExportVpc',
@@ -269,11 +262,13 @@ def get_athena_billing_metrics(event, context):
         )
         response_payload = response['Payload'].read().decode('utf-8')
         if response.get('FunctionError'):
-            print(f"[Func-ERROR]-[get_athena_billing_metrics]-[M365CollectS3ExportVpc] {response_payload}")
+            print(f"[Func-ERROR]-[get_athena_query_history]-[M365CollectS3ExportVpc] {response_payload}")
             return json.dumps({ "status": "failed" })
-        export_result = json.loads(response_payload) if response_payload else {"status": "unknown"}
+
+        _ = json.loads(response_payload) if response_payload else {"status": "unknown"}
+
     except Exception as e:
-        print(f"[Func-ERROR]-[get_athena_billing_metrics]-[export-invoke] {e}")
-        return json.dumps({ "status": "failed" })
+        print(f"[Func-ERROR]-[get_athena_query_history]-[export-invoke] {e}")
+        return { "status": "failed" }
 
     return json.dumps({ "status": "success" })

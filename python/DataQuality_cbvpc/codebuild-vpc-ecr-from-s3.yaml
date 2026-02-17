@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create CodeBuild project that builds Docker image from S3 ZIP source and pushes to ECR.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: m365-catalogupdate-container-cbvpc-build
+    Description: Name of the CodeBuild project.
+  SourceBucket:
+    Type: String
+    Description: S3 bucket containing the source ZIP.
+  SourceKey:
+    Type: String
+    Description: S3 key (object path) of the source ZIP.
+  ImageRepoName:
+    Type: String
+    Description: ECR repository name to push images to.
+  CreateECRRepository:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'true'
+    Description: Whether to create the ECR repository if it does not exist.
+  EnvironmentImage:
+    Type: String
+    Default: aws/codebuild/standard:7.0
+    Description: CodeBuild environment image.
+  ComputeType:
+    Type: String
+    AllowedValues:
+      - BUILD_GENERAL1_SMALL
+      - BUILD_GENERAL1_MEDIUM
+      - BUILD_GENERAL1_LARGE
+    Default: BUILD_GENERAL1_SMALL
+    Description: CodeBuild compute type.
+  AwsDefaultRegion:
+    Type: String
+    Default: ap-northeast-1
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for CodeBuild to run in.
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for CodeBuild (typically private subnets).
+  ProxyUrl:
+    Type: String
+    Default: ""
+    Description: Optional proxy URL (e.g. http://proxy.example.com:8080). Empty disables proxy.
+  NoProxy:
+    Type: String
+    Default: 169.254.169.254,169.254.170.2,localhost,127.0.0.1,.s3.ap-northeast-1.amazonaws.com,.s3.amazonaws.com,s3.ap-northeast-1.amazonaws.com
+    Description: no_proxy/NO_PROXY value used when ProxyUrl is set.
+  CodeBuildSecurityGroup:
+    Type: String
+    Default: ""
+    Description: Security Group ID for CodeBuild to use.
+  CodeBuildServiceRole:
+    Type: String
+    Default: ""
+    Description: (Optional) Existing CodeBuild service role ARN to use. If empty, a new role will be created.
+
+
+Conditions:
+  CreateECR: !Equals [ !Ref CreateECRRepository, 'true' ]
+  UseProxy: !Not [ !Equals [ !Ref ProxyUrl, "" ] ]
+
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Condition: CreateECR
+    Properties:
+      RepositoryName: !Ref ImageRepoName
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref ProjectName
+      ServiceRole: !Ref CodeBuildServiceRole
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Source:
+        Type: S3
+        Location: !Sub "${SourceBucket}/${SourceKey}"
+      Environment:
+        Type: LINUX_CONTAINER
+        Image: !Ref EnvironmentImage
+        ComputeType: !Ref ComputeType
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Type: PLAINTEXT
+            Value: !Ref AwsDefaultRegion
+          - Name: IMAGE_REPO_NAME
+            Type: PLAINTEXT
+            Value: !Ref ImageRepoName
+          - Name: IMAGE_TAG
+            Type: PLAINTEXT
+            Value: ""
+          - Name: DOCKERFILE
+            Type: PLAINTEXT
+            Value: "Dockerfile"
+          - Name: PROXY_URL
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref ProxyUrl, "" ]
+          - Name: NO_PROXY
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref NoProxy, "" ]
+          - Name: HTTP_PROXY
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref ProxyUrl, "" ]
+          - Name: HTTPS_PROXY
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref ProxyUrl, "" ]
+
+      VpcConfig:
+        VpcId: !Ref VpcId
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref CodeBuildSecurityGroup
+
+Outputs:
+  CodeBuildProjectName:
+    Description: Created CodeBuild project name
+    Value: !Ref CodeBuildProject
+  ECRRepositoryName:
+    Condition: CreateECR
+    Description: ECR repository name
+    Value: !Ref ECRRepository

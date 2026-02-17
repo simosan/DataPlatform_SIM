@@ -1,0 +1,103 @@
+version: 0.2
+
+# 方針:
+# - buildspec 側で env:variables を定義すると CodeBuild プロジェクト側の環境変数を上書きしやすいため、
+#   ここでは原則定義しない。
+# - デプロイ可否やスタック名など「実行時に変えたい値」は CodeBuild プロジェクト側の環境変数で制御する。
+
+phases:
+  install:
+    commands:
+      - python3 --version
+      - pip3 --version
+      - pip3 install --upgrade pip
+      - pip3 install --upgrade aws-sam-cli
+      - sam --version
+  pre_build:
+    commands:
+      - cd "${CODEBUILD_SRC_DIR}"
+      - echo "PWD=${PWD}"
+      - echo "Listing files under CODEBUILD_SRC_DIR"
+      - ls -la
+      - |
+        SAM_TEMPLATE_PATH="template.yaml"
+        LAYER_REQUIREMENTS_PATH="layers/PythonLayer/requirements.txt"
+
+        if [ "${DO_DEPLOY}" = "true" ]; then
+          test -f "${SAM_TEMPLATE_PATH}" || (echo "Missing ${SAM_TEMPLATE_PATH} in ${CODEBUILD_SRC_DIR}" && exit 1)
+
+          if [ -z "${STACK_NAME:-}" ]; then
+            echo "STACK_NAME is empty. Set it in the CodeBuild project env vars." >&2
+            exit 1
+          fi
+          if [ -z "${SAM_S3_BUCKET:-}" ]; then
+            echo "SAM_S3_BUCKET is empty. Set it in the CodeBuild project env vars (S3 bucket for sam deploy uploads)." >&2
+            exit 1
+          fi
+        else
+          if [ -z "${DO_DEPLOY:-}" ]; then
+            echo "DO_DEPLOY is empty. Set DO_DEPLOY=true/false in the CodeBuild project env vars." >&2
+            exit 1
+          fi
+          echo "DO_DEPLOY=false; skipping deploy"
+        fi
+
+        test -f "${LAYER_REQUIREMENTS_PATH}" || (echo "Missing ${LAYER_REQUIREMENTS_PATH} in ${CODEBUILD_SRC_DIR}" && exit 1)
+
+      # CodeBuild では通常 AWS_DEFAULT_REGION が入るが、未設定でも動くように既定を付与
+      - export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-ap-northeast-1}
+
+      # SAM CLI telemetry はプロキシ環境でノイズになりやすいので無効化
+      - export SAM_CLI_TELEMETRY=0
+  build:
+    commands:
+      - |
+        set -euo pipefail
+        # Lambda Layer の中身は layers/PythonLayer/python/ 配下に置く必要がある
+        # ここで requirements を Lambda 用に解決して展開する（sdist ビルド回避のため --only-binary を強制）
+        echo "Building Lambda layer dependencies..."
+        LAYER_OUTPUT_DIR="layers/PythonLayer/python"
+        rm -rf "${LAYER_OUTPUT_DIR}"
+        mkdir -p "${LAYER_OUTPUT_DIR}"
+
+        python3 -m pip install \
+          --requirement "layers/PythonLayer/requirements.txt" \
+          --target "${LAYER_OUTPUT_DIR}" \
+          --platform "manylinux_2_28_aarch64" \
+          --implementation cp \
+          --python-version "3.13" \
+          --only-binary=:all: \
+          --upgrade \
+          --no-compile
+
+        echo "Verifying layer contents..."
+        test -d "${LAYER_OUTPUT_DIR}/pandas" || (echo "ERROR: pandas not found under ${LAYER_OUTPUT_DIR}. Refusing to deploy an empty/broken layer." >&2 && exit 1)
+        du -sh "${LAYER_OUTPUT_DIR}" || true
+  post_build:
+    commands:
+      - |
+        set -euo pipefail
+        set -x
+        if [ "${CODEBUILD_BUILD_SUCCEEDING}" != "1" ]; then
+          echo "Build phase failed; skipping deploy."
+          exit 0
+        fi
+        if [ "${DO_DEPLOY}" = "true" ]; then
+          echo "Deploying stack: ${STACK_NAME}"
+          echo "Deploy settings: STACK_NAME=${STACK_NAME} SAM_S3_BUCKET=${SAM_S3_BUCKET} AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}"
+          sam deploy \
+            --template-file "template.yaml" \
+            --stack-name "${STACK_NAME}" \
+            --s3-bucket "${SAM_S3_BUCKET}" \
+            --capabilities "CAPABILITY_IAM" \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --region "${AWS_DEFAULT_REGION}"
+        else
+          echo "DO_DEPLOY=false; skipping sam deploy"
+        fi
+
+artifacts:
+  files:
+    - layers/PythonLayer/python/**/*
+    - template.yaml

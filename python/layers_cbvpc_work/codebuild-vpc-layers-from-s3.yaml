@@ -1,0 +1,146 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CodeBuild project for building/deploying SAM Lambda Layer (layers_work).
+  Source is an S3 ZIP (no CodeStar Connections required).
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: sam-layer-build
+
+  # Build input (Source)
+  SourceBucket:
+    Type: String
+    Description: S3 bucket containing the source ZIP
+  SourceObjectKey:
+    Type: String
+    Description: S3 object key for the source ZIP (e.g. layers_work.zip)
+  SourceObjectVersion:
+    Type: String
+    Default: ''
+    Description: Optional S3 object versionId (leave empty if not using versioned objects)
+
+  # buildspec path inside the extracted ZIP
+  # - If the ZIP contains only layers_work/, use 'buildspec.yml'
+  # - If the ZIP contains repo root, use 'lambda/DataPlatform/python/layers_work/buildspec.yml'
+  BuildspecPath:
+    Type: String
+    Default: buildspec.yml
+
+  StackName:
+    Type: String
+    Default: sam-pyapplayer-test
+  DoDeploy:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+  EnvironmentType:
+    Type: String
+    Default: ARM_CONTAINER
+    AllowedValues:
+      - LINUX_CONTAINER
+      - ARM_CONTAINER
+    Description: >-
+      Recommended: ARM_CONTAINER for building arm64 Lambda layers without QEMU/binfmt.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for CodeBuild to run in.
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for CodeBuild (typically private subnets).
+  ProxyUrl:
+    Type: String
+    Default: ""
+    Description: Optional proxy URL (e.g. http://proxy.example.com:8080). Empty disables proxy.
+  NoProxy:
+    Type: String
+    Default: 169.254.169.254,169.254.170.2,localhost,127.0.0.1,.s3.ap-northeast-1.amazonaws.com,.s3.amazonaws.com,s3.ap-northeast-1.amazonaws.com
+    Description: no_proxy/NO_PROXY value used when ProxyUrl is set.
+
+  CodeBuildSecurityGroup:
+    Type: String
+    Default: ""
+    Description: Security Group ID for CodeBuild to use.
+
+  CodeBuildServiceRole:
+    Type: String
+    Default: ""
+    Description: (Optional) Existing CodeBuild service role ARN to use. If empty, a new role will be created.
+
+  EnvironmentImageX86:
+    Type: String
+    Default: aws/codebuild/standard:7.0
+    Description: x86_64 用の CodeBuild curated image
+
+  EnvironmentImageArm:
+    Type: String
+    Default: aws/codebuild/amazonlinux2-aarch64-standard:3.0
+    Description: ARM 用の CodeBuild curated image（ARM_CONTAINERで必要）
+
+Conditions:
+  IsArmContainer: !Equals [!Ref EnvironmentType, ARM_CONTAINER]
+
+Resources:
+  SamLayerCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref ProjectName
+      ServiceRole: !Ref CodeBuildServiceRole
+      Source:
+        Type: S3
+        Location: !Sub '${SourceBucket}/${SourceObjectKey}'
+        BuildSpec: !Ref BuildspecPath
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: !Ref EnvironmentType
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: !If [IsArmContainer, !Ref EnvironmentImageArm, !Ref EnvironmentImageX86]
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: STACK_NAME
+            Value: !Ref StackName
+          - Name: DO_DEPLOY
+            Value: !Ref DoDeploy
+          - Name: SAM_S3_BUCKET
+            Value: !Ref SourceBucket
+          - Name: PROXY_URL
+            Type: PLAINTEXT
+            Value: !Ref ProxyUrl
+          - Name: NO_PROXY
+            Type: PLAINTEXT
+            Value: !Ref NoProxy
+          - Name: HTTP_PROXY
+            Type: PLAINTEXT
+            Value: !Ref ProxyUrl
+          - Name: HTTPS_PROXY
+            Type: PLAINTEXT
+            Value: !Ref ProxyUrl
+          - Name: http_proxy
+            Value: !Ref ProxyUrl
+          - Name: https_proxy
+            Value: !Ref ProxyUrl
+          - Name: no_proxy
+            Value: !Ref NoProxy
+
+      VpcConfig:
+        VpcId: !Ref VpcId
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref CodeBuildSecurityGroup
+
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+
+Outputs:
+  ProjectName:
+    Value: !Ref SamLayerCodeBuildProject
+  ProjectArn:
+    Value: !GetAtt SamLayerCodeBuildProject.Arn
+  ServiceRoleArn:
+    Value: !Ref CodeBuildServiceRole
+  CodeBuildSecurityGroupId:
+    Value: !Ref CodeBuildSecurityGroup

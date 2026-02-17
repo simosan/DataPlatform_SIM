@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: aws-lambda-powershell-getgroup-runtime
+Description: aws-lambda-python-commoncol-runtime
 
 Parameters:
   isVPC:
@@ -10,21 +10,21 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
-  ProxyUrl:
-    Description: "Outbound proxy URL (used only when isVPC=true). Example: http://host:port"
-    Type: String
-    Default: ""
   LayerName:
+    Description: "Input lambda layer name."
     Type: String
     Default: ""
   LayerVersion:
+    Description: "Input lambda layer version."
     Type: Number
+    Default: 10
   LambdaRole:
     Type: String
     Description: IAM Role ARN for Lambda functions
   FunctionName:
     Type: String
     Description: "Input Lambda function name."
+
   VpcSubnetIds:
     Description: "Subnet IDs for Lambda VpcConfig (used only when isVPC=true)."
     Type: CommaDelimitedList
@@ -35,37 +35,24 @@ Parameters:
     Default: ""
 Conditions:
   UseVPC: !Equals [!Ref isVPC, "true"]
-  UseProxy: !And
-    - !Condition UseVPC
-    - !Not [!Equals [!Ref ProxyUrl, ""]]
 
 Resources:
   ##########################################################################
-  # Lambda関数（M365グループ情報取得関数）
+  # Lambda関数（Athenaクエリ履歴取得）
   ##########################################################################
-  M365GetUserFunction:
+  AthenaQueryHistoryCol:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Ref FunctionName
       PackageType: Zip
-      Handler: M365GetGroup.ps1::M365GetGroup
-      Runtime: provided.al2023
+      Handler: getathenaqueryhistory.get_athena_query_history
+      Runtime: python3.13
       CodeUri: ./
       Layers:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
       Timeout: 900
       MemorySize: 512
       Role: !Ref LambdaRole
-      Environment: !If
-        - UseProxy
-        - Variables:
-            HTTP_PROXY: !Ref ProxyUrl
-            HTTPS_PROXY: !Ref ProxyUrl
-            # Lambda runtime (local) / metadata should never go through proxy
-            # AWS も含め全通信をプロキシ経由にする（ローカル/メタデータのみ例外）
-            NO_PROXY: "127.0.0.1,localhost,169.254.169.254,169.254.170.2"
-            no_proxy: "127.0.0.1,localhost,169.254.169.254,169.254.170.2"
-        - !Ref AWS::NoValue
       VpcConfig: !If
         - UseVPC
         - SubnetIds: !Ref VpcSubnetIds
@@ -73,4 +60,3 @@ Resources:
         - !Ref AWS::NoValue
       Architectures:
         - arm64
-

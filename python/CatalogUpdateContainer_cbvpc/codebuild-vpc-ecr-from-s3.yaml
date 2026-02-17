@@ -4,7 +4,7 @@ Description: Create CodeBuild project that builds Docker image from S3 ZIP sourc
 Parameters:
   ProjectName:
     Type: String
-    Default: m365-get-user-container-build
+    Default: m365-catalogupdate-container-cbvpc-build
     Description: Name of the CodeBuild project.
   SourceBucket:
     Type: String
@@ -14,7 +14,6 @@ Parameters:
     Description: S3 key (object path) of the source ZIP.
   ImageRepoName:
     Type: String
-    Default: m365-get-user-container
     Description: ECR repository name to push images to.
   CreateECRRepository:
     Type: String
@@ -36,28 +35,37 @@ Parameters:
   AwsDefaultRegion:
     Type: String
     Default: ap-northeast-1
-    Description: Default AWS region used inside the build.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for CodeBuild to run in.
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for CodeBuild (typically private subnets).
+  ProxyUrl:
+    Type: String
+    Default: ""
+    Description: Optional proxy URL (e.g. http://proxy.example.com:8080). Empty disables proxy.
+  NoProxy:
+    Type: String
+    Default: 169.254.169.254,169.254.170.2,localhost,127.0.0.1,.s3.ap-northeast-1.amazonaws.com,.s3.amazonaws.com,s3.ap-northeast-1.amazonaws.com
+    Description: no_proxy/NO_PROXY value used when ProxyUrl is set.
+  CodeBuildSecurityGroup:
+    Type: String
+    Default: ""
+    Description: Security Group ID for CodeBuild to use.
+  CodeBuildServiceRole:
+    Type: String
+    Default: ""
+    Description: (Optional) Existing CodeBuild service role ARN to use. If empty, a new role will be created.
+
 
 Conditions:
   CreateECR: !Equals [ !Ref CreateECRRepository, 'true' ]
+  UseProxy: !Not [ !Equals [ !Ref ProxyUrl, "" ] ]
+
 
 Resources:
-  CodeBuildServiceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "codebuild-${ProjectName}-role"
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: codebuild.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
-
   ECRRepository:
     Type: AWS::ECR::Repository
     Condition: CreateECR
@@ -68,7 +76,7 @@ Resources:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: !Ref ProjectName
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      ServiceRole: !Ref CodeBuildServiceRole
       Artifacts:
         Type: NO_ARTIFACTS
       Source:
@@ -91,15 +99,30 @@ Resources:
             Value: ""
           - Name: DOCKERFILE
             Type: PLAINTEXT
-            Value: "Dockerfile_al2023"
+            Value: "Dockerfile"
+          - Name: PROXY_URL
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref ProxyUrl, "" ]
+          - Name: NO_PROXY
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref NoProxy, "" ]
+          - Name: HTTP_PROXY
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref ProxyUrl, "" ]
+          - Name: HTTPS_PROXY
+            Type: PLAINTEXT
+            Value: !If [ UseProxy, !Ref ProxyUrl, "" ]
+
+      VpcConfig:
+        VpcId: !Ref VpcId
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref CodeBuildSecurityGroup
 
 Outputs:
   CodeBuildProjectName:
     Description: Created CodeBuild project name
     Value: !Ref CodeBuildProject
-  CodeBuildServiceRoleArn:
-    Description: IAM role ARN used by CodeBuild
-    Value: !GetAtt CodeBuildServiceRole.Arn
   ECRRepositoryName:
     Condition: CreateECR
     Description: ECR repository name

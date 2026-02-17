@@ -30,8 +30,8 @@ def imp_s3_collect_data(bucket_name, collect_key, group, targetdataname, filenam
 
     # data空チェック
     if not result['data']:
-        print(f"[func-error]-[imp_s3_collect_data] {result}")
-        return None
+        print(f"[Func-ERROR]-[imp_s3_collect_data] データが空です。result: {result}")
+        raise
     return result
 
 # 取得対象のS3キー一覧を取得
@@ -53,8 +53,8 @@ def list_s3_collect_data(bucket_name, collect_key, group, targetdataname, baseda
     result = json.loads(response_payload)
 
     if result.get("statusCode") != 200:
-        print(f"[func-error]-[list_s3_collect_data] {result}")
-        return None
+        print(f"[Func-ERROR]-[list_s3_collect_data] S3キーの一覧取得に失敗しました。result: {result}")
+        raise
 
     print(f"[Debug-result {result}]")
 
@@ -86,13 +86,9 @@ def exp_s3_conv_data(bucket_name,
         s3 = boto3.client('s3')
         s3.put_object(Bucket=bucket_name, Key=s3_key, Body=parquet_buffer.getvalue())
     except Exception as e:
-        print(f"[func-error]-[m365convgroup]-[s3-Export-Error] {str(e)}")
-        return {
-            "statusCode": 500,
-            "message": f"Error uploading to S3: {str(e)}"
-        }
-
-    return {" statusCode": 200, "message": "success", "s3_key": s3_key }
+        print(f"[Func-ERROR]-[m365convgroup]-[s3-Export-Error] Error uploading to S3: {str(e)}")
+        raise
+    return {"statusCode": 200, "message": "success", "s3_key": s3_key }
 
 
 # main関数
@@ -102,8 +98,9 @@ def conv_athena_bilmetrics(event, context):
         basedate = "na"
     else:
         if not re.match(r'^\d{4}-\d{2}-\d{2}$', event['basedate']):
-            raise ValueError("[Func-Error]-[conv_athena_bilmetrics]-[InvalidInput]"
+            print(f"[Func-ERROR]-[conv_athena_bilmetrics]-[InvalidInput]"
                              "basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。")
+            return json.dumps({ "status": "failed" })
         basedate = event['basedate']
 
     # parameterストアから必要な値を取得
@@ -114,8 +111,11 @@ def conv_athena_bilmetrics(event, context):
                                     WithDecryption=False)['Parameter']['Value']
     target_key = ssm.get_parameter(Name='/m365/common/pipelineconv',
                                     WithDecryption=False)['Parameter']['Value']
-    # データ取得対象グループ,テーブル
-    group = "group1"
+    # データ取得対象グループ,テーブル指定
+    group = event.get("group")
+    if not group:
+        print(f"[Func-ERROR]-[conv_athena_bilmetrics]-[InvalidInput] group is required.")
+        return json.dumps({ "status": "failed" })
     targetdataname = "athenabillingmetrics"
 
     # 取得対象キーに格納された一覧を取得（単一キー、複数キーの違いはなし）
@@ -125,30 +125,34 @@ def conv_athena_bilmetrics(event, context):
                                     targetdataname,
                                     basedate)
     if filelist is None:
-        return {
-            "statusCode": 500,
-            "message": "list_s3_collect_dataでエラー"
-        }
-
+        print(f"[Func-ERROR]-[conv_athena_bilmetrics] list_s3_collect_dataでS3キーの一覧取得に失敗しました。")
+        return json.dumps({ "status": "failed" })
 
      # DataFrameを格納するリスト
     dfs = []
     for file in filelist:
 
-        # S3から基準日を取得
-        result = imp_s3_collect_data(bucket_name,
-                                     collect_key,
-                                     group,
-                                     targetdataname,
-                                     file,
-                                     basedate)
+        try:
+            result = imp_s3_collect_data(bucket_name,
+                                         collect_key,
+                                         group,
+                                         targetdataname,
+                                         file,
+                                         basedate)
+        except Exception as e:
+            print(f"[Func-ERROR]-[conv_athena_bilmetrics]-[imp_s3_collect_data] {e}")
+            return json.dumps({ "status": "failed" })
+
         if result is None:
-            return {
-                "statusCode": 500,
-                "message": "imp_s3_collect_dataでエラー"
-            }
+            print(f"[Func-WARN]-[conv_athena_bilmetrics]"
+                  "imp_s3_collect_dataで警告が発生しました。データが空です。")
+            # データが空の場合もあるため、後続処理は行わずに次のファイルへ（ループ継続）
+            continue
 
         data = result.get('data')
+        if not data:
+            print(f"[Func-WARN]-[conv_athena_bilmetrics] dataが空のためスキップします。file: {file}")
+            continue
         print(data)
 
         # 加工、S3出力前に複数ファイル（単一でも）をまとめる
@@ -161,29 +165,39 @@ def conv_athena_bilmetrics(event, context):
             df['acquired_date'] = result.get('acquired_date')
             dfs.append(df)
         except Exception as e:
-            print(f"[func-error]-[conv_athena_bilmetrics] \
+            print(f"[Func-ERROR]-[conv_athena_bilmetrics] \
                 DataFrame変換失敗: {str(e)}")
-            return {
-                "statusCode": 500,
-                "message": f"Pandas DataFrame変換失敗: {str(e)}"
-            }
+            return json.dumps({ "status": "failed" })
 
     # dfsを結合
+    # 全て空だと pd.concat が例外になるので、事前にチェックして空の場合は成功で終了する
+    if not dfs:
+        print(f"[Func-WARN]-[conv_athena_bilmetrics] 取得したデータは全て空でした。dfs is empty.")
+        # データが空の場合もあるため、後続処理は行わずに成功で終了
+        return json.dumps({ "status": "success" })
+    # 0行のDataFrameが混在している可能性があるため、その場合も除外目的で成功終了
     merged_df = pd.concat(dfs, ignore_index=True)
-    print(f"[Debug-merged_df] {len(merged_df)} 件のデータを取得しました。")
-    # S3に出力
-    result = exp_s3_conv_data(bucket_name,
-                                 target_key,
-                                 group,
-                                 targetdataname,
-                                 df['base_date'].iloc[0],
-                                 merged_df)
-    if result.get("statusCode") != 200:
-        return {
-            "statusCode": 500,
-            "message": result["message"] if result else "exp_s3_conv_dataでエラー"
-    }
+    if merged_df.empty:
+        print(f"[Func-WARN]-[conv_athena_bilmetrics] 取得したデータは全て空でした。merged_df is empty.")
+        # データが空の場合もあるため、後続処理は行わずにS3出力もせずに成功で終了
+        return json.dumps({ "status": "success" })
 
-    return {
-            "statusCode": 200,
-            "message": "success"}
+    # S3に出力
+    try:
+        result = exp_s3_conv_data(bucket_name,
+                                     target_key,
+                                     group,
+                                     targetdataname,
+                                     df['base_date'].iloc[0],
+                                     merged_df)
+    except Exception as e:
+        print(f"[Func-ERROR]-[conv_athena_bilmetrics]-[exp_s3_conv_data] {e}")
+        return json.dumps({ "status": "failed" })
+
+    if result.get("statusCode") != 200:
+        print(f"message: {result['message']}")
+        print(f"[Func-ERROR]-[conv_athena_bilmetrics] S3への出力に失敗しました。"
+              f"statuscode: {result.get('statusCode')}")
+        return json.dumps({ "status": "failed" })
+
+    return json.dumps({ "status": "success" })

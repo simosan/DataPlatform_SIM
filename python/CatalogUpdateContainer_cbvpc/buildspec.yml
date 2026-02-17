@@ -1,0 +1,72 @@
+version: 0.2
+
+env:
+  variables:
+    # 任意に変更可（ECRのリポジトリ名）
+    IMAGE_REPO_NAME: m365-catalogupdate-container-cbvpc
+    # 指定しなければGitの短SHAを使用
+    IMAGE_TAG: ""
+    # Dockerビルドのコンテキスト（このbuildspecが置かれているディレクトリ）
+    BUILD_CONTEXT: .
+    # 使うDockerfileのパス（相対）
+    DOCKERFILE: Dockerfile
+    # latest タグも付与・プッシュするか（true/false）
+    PUSH_LATEST: "true"
+    # Dockerfile のベースイメージ
+    BASE_IMAGE: "public.ecr.aws/docker/library/python:3.12-slim"
+
+phases:
+  pre_build:
+    commands:
+      - ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+      - REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      - REPOSITORY_URI=${REGISTRY}/${IMAGE_REPO_NAME}
+      - echo "[pre_build] BASE_IMAGE=${BASE_IMAGE}"
+      - aws ecr describe-repositories --repository-names ${IMAGE_REPO_NAME} --region ${AWS_DEFAULT_REGION} >/dev/null 2>&1 || aws ecr create-repository --repository-name ${IMAGE_REPO_NAME} --region ${AWS_DEFAULT_REGION}
+      - unset DOCKER_CONTEXT || true
+  build:
+    commands:
+      - export HTTP_PROXY=${HTTP_PROXY}
+      - export HTTPS_PROXY=${HTTPS_PROXY}
+      - export NO_PROXY=${NO_PROXY}
+      - |
+          set +e
+          systemctl restart docker >/dev/null 2>&1
+          if [ -f /var/run/docker.pid ]; then
+            DOCKER_PID="$(cat /var/run/docker.pid 2>/dev/null)"
+            if [ -n "${DOCKER_PID}" ] && kill -0 "${DOCKER_PID}" >/dev/null 2>&1; then
+              kill "${DOCKER_PID}" >/dev/null 2>&1 || true
+              for i in $(seq 1 30); do
+                kill -0 "${DOCKER_PID}" >/dev/null 2>&1 || break
+                sleep 1
+              done
+            fi
+          fi
+
+          if ! docker info >/dev/null 2>&1; then
+            nohup dockerd --host=unix:///var/run/docker.sock --pidfile=/var/run/docker.pid > /var/log/dockerd.log 2>&1 &
+            for i in $(seq 1 60); do
+              docker info >/dev/null 2>&1 && break
+              sleep 1
+            done
+          fi
+          docker info >/dev/null 2>&1 || true
+          set -e
+      - PASS=$(aws ecr get-login-password --region ${AWS_DEFAULT_REGION})
+      - echo "${PASS}" | docker login --username AWS --password-stdin ${REGISTRY}
+      - RESOLVED=${CODEBUILD_RESOLVED_SOURCE_VERSION:-}
+      - GIT_SHA=$(echo "${RESOLVED}" | cut -c1-7)
+      - if [ -z "${IMAGE_TAG}" ]; then IMAGE_TAG=${GIT_SHA}; fi
+      - if [ -z "${IMAGE_TAG}" ]; then IMAGE_TAG="${CODEBUILD_BUILD_NUMBER:-0}-$(date -u +%Y%m%d%H%M%S)"; fi
+      - docker build --build-arg "BASE_IMAGE=${BASE_IMAGE}" --build-arg "HTTP_PROXY=${HTTP_PROXY}" --build-arg "HTTPS_PROXY=${HTTPS_PROXY}" --build-arg "http_proxy=${http_proxy:-${HTTP_PROXY}}" --build-arg "https_proxy=${https_proxy:-${HTTPS_PROXY}}" --build-arg "NO_PROXY=${NO_PROXY}" --build-arg "no_proxy=${no_proxy:-${NO_PROXY}}" -f ${DOCKERFILE} -t ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${BUILD_CONTEXT}
+      - docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:${IMAGE_TAG}
+      - "if [ \"${PUSH_LATEST}\" = \"true\" ]; then docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:latest; fi"
+  post_build:
+    commands:
+      - docker push ${REPOSITORY_URI}:${IMAGE_TAG}
+      - "if [ \"${PUSH_LATEST}\" = \"true\" ]; then docker push ${REPOSITORY_URI}:latest; fi"
+      # ECS等と連携する場合の成果物（任意）
+      - "printf '[{\"name\":\"%s\",\"imageUri\":\"%s\"}]' \"${IMAGE_REPO_NAME}\" \"${REPOSITORY_URI}:${IMAGE_TAG}\" > imagedefinitions.json"
+artifacts:
+  files:
+    - imagedefinitions.json

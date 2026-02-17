@@ -2,6 +2,7 @@
 import boto3
 import pandas as pd
 from io import StringIO
+import json
 
 def m365cols3import(event, context):
 
@@ -31,10 +32,7 @@ def m365cols3import(event, context):
     except Exception as e:
         print(f"[func-error]-[m365colimport]-[reading-error] \
             basedatetime.csv: {e}")
-        return {
-            "statusCode": 500,
-            "message": f"m365cols3import Error : {str(e)}"
-        }
+        return json.dumps({ "status": "failed" })
 
     # 各収集データの取得
     try:
@@ -48,10 +46,10 @@ def m365cols3import(event, context):
         df = pd.read_json(StringIO(json_file_body))
     except s3_client.exceptions.NoSuchKey as e:
         print(f"[func-error]-[m365colimport]-NoSuchKey: {targetkey + filename}")
-        return {"statusCode": 500, "message": f"File not found: {str(e)}"}
+        return json.dumps({ "status": "failed"})
     except Exception as e:
         print(f"[func-error]-[m365colimport]-reading JSON: {targetkey + filename} : {e}")
-        return {"statusCode": 500, "message": f"Error reading JSON: {str(e)}"}
+        return json.dumps({ "status": "failed"})
 
     return {"data": df.get('data', []).tolist(),
             "m365_base": df['m365_base'].iloc[0],

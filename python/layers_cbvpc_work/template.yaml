@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Python Layer
+
+Parameters:
+  LayerName:
+    Type: String
+    Default: SimPythonRuntimeLayer
+
+Resources:
+  PythonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      Description: Lambda layer with Python 3.13 runtime,Added packaging for pandas, psycopg2-binary, numpy, and pyarrow.
+      LayerName: !Ref LayerName
+      ContentUri: layers/PythonLayer/
+      CompatibleRuntimes:
+        - python3.13
+      CompatibleArchitectures:
+        - arm64
+    Metadata:
+      BuildMethod: python3.13
+      BuildArchitecture: arm64

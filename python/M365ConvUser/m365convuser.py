@@ -30,8 +30,8 @@ def imp_s3_collect_data(bucket_name, collect_key, group, targetdataname, filenam
     result = json.loads(response_payload)
 
     # data空チェック
-    if not result['data']:
-        print(f"[func-error]-[imp_s3_collect_data] {result}")
+    if not result.get('data'):
+        print(f"[func-warn]-[imp_s3_collect_data] データが空です。result: {result}")
         return None
     return result
 
@@ -92,7 +92,7 @@ def exp_s3_conv_data(bucket_name,
             "message": f"Error uploading to S3: {str(e)}"
         }
 
-    return {" statusCode": 200, "message": "success", "s3_key": s3_key }
+    return {"statusCode": 200, "message": "success", "s3_key": s3_key }
 
 
 # main関数
@@ -125,31 +125,36 @@ def m365convuser(event, context):
                                     targetdataname,
                                     basedate)
     if filelist is None:
-        return {
-            "statusCode": 500,
-            "message": "list_s3_collect_dataでエラー"
-        }
+        print(f"[func-error]-[m365convuser] list_s3_collect_dataでエラー: filelist None")
+        return json.dumps({"status":"failed"})
 
     # DataFrameを格納するリスト
     dfs = []
     for file in filelist:
 
-        # S3から基準日を取得
-        result = imp_s3_collect_data(bucket_name,
-                                     collect_key,
-                                     group,
-                                     targetdataname,
-                                     file,
-                                     basedate)
+        try:
+            result = imp_s3_collect_data(bucket_name,
+                                         collect_key,
+                                         group,
+                                         targetdataname,
+                                         file,
+                                         basedate)
+        except Exception as e:
+            print(f"[Func-ERROR]-[m365convuser]-[imp_s3_collect_data] {e}")
+            return json.dumps({ "status": "failed" })
 
         if result is None:
-            return {
-                "statusCode": 500,
-                "message": "imp_s3_collect_dataでエラー"
-            }
+            print(f"[Func-WARN]-[m365convuser]"
+                  "imp_s3_collect_dataで警告が発生しました。データが空です。")
+            # データが空の場合もあるため、後続処理は行わずに次のファイルへ（ループ継続）
+            continue
 
         data = result.get('data')
+        if not data:
+            print(f"[Func-WARN]-[m365convuser] dataが空のためスキップします。file: {file}")
+            continue
 
+        print(data)
         # 加工、S3出力前に複数ファイル（単一でも）をまとめる
         try:
             df = pd.json_normalize(data)
@@ -162,13 +167,21 @@ def m365convuser(event, context):
         except Exception as e:
             print(f"[func-error]-[m365convuser] \
                 DataFrame変換失敗: {str(e)}")
-            return {
-                "statusCode": 500,
-                "message": f"Pandas DataFrame変換失敗: {str(e)}"
-            }
+            return json.dumps({"status": "failed"})
 
     # dfsを結合
+    # 全て空だと pd.concat が例外になるので、事前にチェックして空の場合は成功で終了する
+    if not dfs:
+        print(f"[Func-WARN]-[m365convuser] 取得したデータは全て空でした。dfs is empty.")
+        # データが空の場合もあるため、後続処理は行わずに成功で終了
+        return json.dumps({ "status": "success" })
+    # 0行のDataFrameが混在している可能性があるため、その場合も除外目的で成功終了
     merged_df = pd.concat(dfs, ignore_index=True)
+    if merged_df.empty:
+        print(f"[Func-WARN]-[m365convuser] 取得したデータは全て空でした。merged_df is empty.")
+        # データが空の場合もあるため、後続処理は行わずにS3出力もせずに成功で終了
+        return json.dumps({ "status": "success" })
+
     # 適当な加工（指定列のNaNを'dummy'に置換）
     merged_df[['surname', 'givenName']] = merged_df[['surname', 'givenName']].fillna("dummy")
     print(f"[Debug-merged_df] {len(merged_df)} 件のデータを取得しました。")
@@ -180,12 +193,8 @@ def m365convuser(event, context):
                                  df['base_date'].iloc[0],
                                  merged_df)
     if result.get("statusCode") != 200:
-        return {
-            "statusCode": 500,
-            "message": result["message"] if result else "exp_s3_conv_dataでエラー"
-    }
+        print(f"[func-error]-[m365convuser] exp_s3_conv_dataでエラーが発生しました。result: {result}")
+        return json.dumps({"status":"failed"})
 
-    return {
-            "statusCode": 200,
-            "message": "success"}
-
+    return json.dumps({
+            "status": "success"})

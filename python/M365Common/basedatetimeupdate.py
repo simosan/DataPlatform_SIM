@@ -9,6 +9,7 @@ import datetime
 from io import StringIO
 from datetime import datetime, timedelta
 import pytz
+import json
 
 def basedatetimeupdate(event, context):
     # 変数設定
@@ -19,9 +20,8 @@ def basedatetimeupdate(event, context):
 
     except Exception as e:
         print(f"[func-error]-[basedatetimeupdate]-[ssm-error] {e}")
-        return {
-            "statusCode": 500,
-            "message": f"false! {e}"}
+        return json.dumps({ "status": "failed" })
+
     basedt_key = 'basedatetime/basedatetime.csv'
 
     # 基準日ファイルから基準日を取得
@@ -36,9 +36,7 @@ def basedatetimeupdate(event, context):
     except Exception as e:
         print(f"[func-error]-[basedatetimeupdate]-[reading-error] \
             basedatetime.csv: {e}")
-        return {
-            "statusCode": 500,
-            "message": f"false! {e}"}
+        return json.dumps({ "status": "failed" })
 
     try:
         # 日付を更新
@@ -64,10 +62,6 @@ def basedatetimeupdate(event, context):
         )
     except Exception as e:
         print(f"[func-error]-[basedatetimeupdate]-[writeing-error] basedatetime.csv: {e}")
-        return {
-            "statusCode": 500,
-            "message": f"false! {e}"}
+        return json.dumps({"status": "failed" })
 
-    return {
-            "statusCode": 200,
-            "message": "success"}
+    return json.dumps({"status": "success"})

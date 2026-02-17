@@ -27,7 +27,7 @@ try {
 function M365Auth {
     try {
         $invokeParams = @{
-            FunctionName    = "M365Auth"
+            FunctionName    = "M365AuthVpc"
             InvocationType  = "RequestResponse"
         }
         $response = Invoke-LMFunction @invokeParams
@@ -67,7 +67,7 @@ function CallM365CollectS3KeyDelete {
     }
     $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
     $invokeParams = @{
-        FunctionName    = "M365CollectS3KeyDelete"
+        FunctionName    = "M365CollectS3KeyDeleteVpc"
         InvocationType  = "RequestResponse"
         Payload         = $payloadJson
     }
@@ -100,7 +100,17 @@ function M365GetUserDocker {
         $CommandInput
     )
 
-    $CommandInput = $CommandInput | ConvertFrom-Json
+    # entrypoint から引数が渡らないケースを許容し、環境変数 GROUP で補完する
+    if ($null -eq $CommandInput -or [string]::IsNullOrWhiteSpace([string]$CommandInput)) {
+        if ([string]::IsNullOrWhiteSpace($env:GROUP)) {
+            Write-Host "[Func-Error]-[M365GetUser]-[InvalidInput] CommandInputが空で、GROUP環境変数も未設定です。"
+            return @{ status = "failed"} | ConvertTo-Json -Compress
+        }
+        $CommandInput = [PSCustomObject]@{ group = $env:GROUP }
+    } else {
+        # JSON文字列を想定
+        $CommandInput = $CommandInput | ConvertFrom-Json
+    }
 
     # リカバリ用に関数入力パラメータから基準日を取得（未使用：na, リカバリ用：yyyy-mm-dd形式）
     if ($null -eq $CommandInput.basedate) {
@@ -119,11 +129,21 @@ function M365GetUserDocker {
     Write-Host "[Func-Info] basedate: $basedate"
 
     ## M365Auth関数呼び出し-認証ヘッダ取得
-    $headers = M365Auth
+    try {
+        $headers = M365Auth
+    } catch {
+        Write-Host "[Func-Error]-[M365GetUser]-[M365Auth failed] $_"
+        Write-Host "ErrorDetails: $($_.Exception | Out-String)"
+        return @{ status = "failed"} | ConvertTo-Json -Compress
+    }
 
     # 冪等性確保のため、ファイル上書きではなく、上位キーを削除する　
     $targetdataname = "m365getuser"
-    $group          = "group1"
+    $group = $CommandInput.group
+    if ($null -eq $group) {
+        Write-Host "[Func-Error]-[M365GetUser]-[InvalidInput] groupが指定されていません。"
+        return @{ status = "failed"} | ConvertTo-Json -Compress
+    }
     CallM365CollectS3KeyDelete -targetdataname $targetdataname `
                                -group $group `
                                -basedate $basedate
@@ -139,7 +159,7 @@ function M365GetUserDocker {
             $response = Invoke-RestMethod -Method Get -Uri $nextLink -Headers $headers
         } catch {
             Write-Host "[Func-Error]-[M365GetUser]-[Invoke-RestMethod failed] $_"
-            throw
+            return @{ status = "failed"} | ConvertTo-Json -Compress
         }
 
         foreach ($user in $response.value) {
@@ -190,7 +210,7 @@ function M365GetUserDocker {
             body           = $base64Payload
             is_gzip        = $true
             targetdataname = "m365getuser"
-            group          = "group1"
+            group          = $group
             batch          = [string]$key
             basedate       = $basedate
             fromtimestamp  = $fromtimestamp
@@ -198,7 +218,7 @@ function M365GetUserDocker {
         }
         $invokePayloadJson = $invokePayload | ConvertTo-Json -Depth 4 -Compress
         $invokeParams = @{
-            FunctionName    = "M365CollectS3Export"
+            FunctionName    = "M365CollectS3ExportVpc"
             InvocationType  = "RequestResponse"
             Payload         = $invokePayloadJson
         }
@@ -210,16 +230,17 @@ function M365GetUserDocker {
 
             if ($response.FunctionError) {
                 $errorPayload = $resultJson | ConvertFrom-Json
-                Write-Host "[Func-Error]-[M365GetUser]-[M365CollectS3Export:LambdaResponseError] `
+                Write-Host "[Func-Error]-[M365GetUser]-[M365CollectS3ExportVpc:LambdaResponseError] `
                     $($errorPayload.errorMessage)"
-                throw $errorPayload
+                return @{ status = "failed"} | ConvertTo-Json -Compress
             } else {
                 $result = $resultJson | ConvertFrom-Json
                 Write-Host "[Func-Success] Batch ${key}: $($result | Out-String)"
             }
         } catch {
             Write-Host "[Func-Error]-[M365GetUser]-[Invoke-LMLambdaFunction failed] $_"
-            throw
+            Write-Host "ErrorDetails: $($_.Exception | Out-String)"
+            return @{ status = "failed"} | ConvertTo-Json -Compress
         }
     }
 

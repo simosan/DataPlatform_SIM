@@ -10,9 +10,13 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
+  ProxyUrl:
+    Description: "Outbound proxy URL (used only when isVPC=true). Example: http://host:port"
+    Type: String
+    Default: ""
   LayerName:
     Type: String
-    Default: "SimPwshRuntimeLayer"
+    Default: ""
   LayerVersion:
     Type: Number
   LambdaRole:
@@ -34,6 +38,9 @@ Parameters:
     Default: ""
 Conditions:
   UseVPC: !Equals [!Ref isVPC, "true"]
+  UseProxy: !And
+    - !Condition UseVPC
+    - !Not [!Equals [!Ref ProxyUrl, ""]]
 
 Resources:
   ##########################################################################
@@ -45,7 +52,7 @@ Resources:
       FunctionName: !Ref FunctionNameM365Auth
       PackageType: Zip
       Handler: M365Auth.ps1::M365Auth
-      Runtime: provided.al2
+      Runtime: provided.al2023
       CodeUri: ./
       Layers:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
@@ -60,9 +67,16 @@ Resources:
       Architectures:
         - arm64
       # If set TRUE, output verbose logs.
-      Environment:
-        Variables:
-          POWERSHELL_RUNTIME_VERBOSE: FALSE
+      Environment: !If
+        - UseProxy
+        - Variables:
+            POWERSHELL_RUNTIME_VERBOSE: "false"
+            HTTP_PROXY: !Ref ProxyUrl
+            HTTPS_PROXY: !Ref ProxyUrl
+            NO_PROXY: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+            no_proxy: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+        - Variables:
+            POWERSHELL_RUNTIME_VERBOSE: "false"
 
   ##########################################################################
   # Lambda関数（S3ファイル出力）
@@ -73,7 +87,7 @@ Resources:
       FunctionName: !Ref FunctionNameM365CollectS3Export
       PackageType: Zip
       Handler: M365CollectS3Export.ps1::M365CollectS3Export
-      Runtime: provided.al2
+      Runtime: provided.al2023
       CodeUri: ./
       Layers:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
@@ -88,9 +102,16 @@ Resources:
       Architectures:
         - arm64
       # If set TRUE, output verbose logs.
-      Environment:
-        Variables:
-          POWERSHELL_RUNTIME_VERBOSE: FALSE
+      Environment: !If
+        - UseProxy
+        - Variables:
+            POWERSHELL_RUNTIME_VERBOSE: "false"
+            HTTP_PROXY: !Ref ProxyUrl
+            HTTPS_PROXY: !Ref ProxyUrl
+            NO_PROXY: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+            no_proxy: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+        - Variables:
+            POWERSHELL_RUNTIME_VERBOSE: "false"
 
   ##########################################################################
   # Lambda関数（S3キー削除）
@@ -101,7 +122,7 @@ Resources:
       FunctionName: !Ref FunctionNameM365CollectS3KeyDelete
       PackageType: Zip
       Handler: M365CollectS3KeyDelete.ps1::M365CollectS3KeyDelete
-      Runtime: provided.al2
+      Runtime: provided.al2023
       CodeUri: ./
       Layers:
         - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
@@ -116,6 +137,13 @@ Resources:
       Architectures:
         - arm64
       # If set TRUE, output verbose logs.
-      Environment:
-        Variables:
-          POWERSHELL_RUNTIME_VERBOSE: FALSE
+      Environment: !If
+        - UseProxy
+        - Variables:
+            POWERSHELL_RUNTIME_VERBOSE: "false"
+            HTTP_PROXY: !Ref ProxyUrl
+            HTTPS_PROXY: !Ref ProxyUrl
+            NO_PROXY: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+            no_proxy: "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+        - Variables:
+            POWERSHELL_RUNTIME_VERBOSE: "false"

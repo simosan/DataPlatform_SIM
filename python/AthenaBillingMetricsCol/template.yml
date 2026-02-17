@@ -13,7 +13,7 @@ Parameters:
   LayerName:
     Description: "Input lambda layer name."
     Type: String
-    Default: "SimPythonRuntimeLayer"
+    Default: ""
   LayerVersion:
     Description: "Input lambda layer version."
     Type: Number

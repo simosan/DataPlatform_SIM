@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.deploy.parameters]
+# vpc
+stack_name = ""
+s3_prefix = ""
+parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerVersion=10 FunctionName=m365AthenaBillingMetricsVpc"
+
+s3_bucket = ""
+region = ""
+profile = ""
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
