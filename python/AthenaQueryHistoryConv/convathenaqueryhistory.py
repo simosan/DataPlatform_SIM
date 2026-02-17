@@ -21,7 +21,7 @@ def imp_s3_collect_data(bucket_name, collect_key, group, targetdataname, filenam
         "basedate": basedate
     }
     response = lambda_client.invoke(
-        FunctionName='m365cols3import',
+        FunctionName='m365cols3importVpc',
         InvocationType='RequestResponse',
         Payload=json.dumps(payload)
     )
@@ -45,7 +45,7 @@ def list_s3_collect_data(bucket_name, collect_key, group, targetdataname, baseda
         "basedate": basedate
     }
     response = lambda_client.invoke(
-        FunctionName='m365cols3list',
+        FunctionName='m365cols3listVpc',
         InvocationType='RequestResponse',
         Payload=json.dumps(payload)
     )

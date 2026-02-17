@@ -21,7 +21,7 @@ def imp_s3_collect_data(bucket_name, collect_key, group, targetdataname, filenam
         "basedate": basedate
     }
     response = lambda_client.invoke(
-        FunctionName='m365cols3import',
+        FunctionName='m365cols3importVpc',
         InvocationType='RequestResponse',
         Payload=json.dumps(payload)
     )
@@ -45,7 +45,7 @@ def list_s3_collect_data(bucket_name, collect_key, group, targetdataname, baseda
         "basedate": basedate
     }
     response = lambda_client.invoke(
-        FunctionName='m365cols3list',
+        FunctionName='m365cols3listVpc',
         InvocationType='RequestResponse',
         Payload=json.dumps(payload)
     )
@@ -86,7 +86,7 @@ def exp_s3_conv_data(bucket_name,
         s3 = boto3.client('s3')
         s3.put_object(Bucket=bucket_name, Key=s3_key, Body=parquet_buffer.getvalue())
     except Exception as e:
-        print(f"[Func-ERROR]-[m365convgroup]-[s3-Export-Error] Error uploading to S3: {str(e)}")
+        print(f"[Func-ERROR]-[conv_athena_bilmetrics]-[s3-Export-Error] Error uploading to S3: {str(e)}")
         raise
     return {"statusCode": 200, "message": "success", "s3_key": s3_key }
 
