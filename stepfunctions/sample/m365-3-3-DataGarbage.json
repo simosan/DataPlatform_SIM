@@ -1,0 +1,10 @@
+{
+  "Comment": "S3 Data Garbage VPC State Machine",
+  "StartAt": "m365-3-3-DataGarbage",
+  "States": {
+    "m365-3-3-DataGarbage": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}

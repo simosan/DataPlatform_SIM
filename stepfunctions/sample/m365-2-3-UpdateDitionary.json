@@ -1,0 +1,42 @@
+{
+  "Comment": "Glue Datacatalog Dictionary Table Crawler Execution",
+  "StartAt": "StartM365DictionaryCrawler",
+  "States": {
+    "StartM365DictionaryCrawler": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+      "Parameters": {
+        "Name": "m365dictionary-crawler"
+      },
+      "ResultPath": null,
+      "Next": "WaitM365DictionaryCrawler"
+    },
+    "WaitM365DictionaryCrawler": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "CheckCrawlerStatus"
+    },
+    "CheckCrawlerStatus": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+      "Parameters": {
+        "Name": "m365dictionary-crawler"
+      },
+      "Next": "CrawlerChoice"
+    },
+    "CrawlerChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.Crawler.State",
+          "StringEquals": "READY",
+          "Next": "DoneCrawler"
+        }
+      ],
+      "Default": "WaitM365DictionaryCrawler"
+    },
+    "DoneCrawler": {
+      "Type": "Succeed"
+    }
+  }
+}

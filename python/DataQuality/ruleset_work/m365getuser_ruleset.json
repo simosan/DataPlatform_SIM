@@ -1,9 +1,0 @@
-{
-  "database": "m365",
-  "table": "m365getuser",
-  "ruleset_name": "m365getuser_ruleset",
-  "rules": [
-    "ColumnExists \"displayname\"",
-    "ColumnValues \"userprincipalname\" matches \"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$\""
-  ]
-}

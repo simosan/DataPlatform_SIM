@@ -33,7 +33,6 @@ function M365CollectS3Export {
         $body = $decompressedJson | ConvertFrom-Json
     } else {
         $body = $LambdaInput.body
-        Write-Host "[Debug] M365GetGroup ${body}"
     }
 
     $group              = $LambdaInput.group

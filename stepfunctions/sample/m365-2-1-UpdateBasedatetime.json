@@ -1,0 +1,75 @@
+{
+  "Comment": "m365-UpdateBasedatetime State Machine for VPC",
+  "StartAt": "m365-2-1-UpdateBasedatetime",
+  "States": {
+    "m365-2-1-UpdateBasedatetime": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:basedatetimeupdateVpc:$LATEST",
+        "Payload": {
+          "cycle.$": "$.cycle"
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.UpdateBasedatetimeError",
+          "Next": "m365-2-1-UpdateBasedatetime-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+                  "States.ALL"
+          ],
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "ResultPath": "$.UpdateBasedatetimeResult",
+      "Next": "m365-2-1-UpdateBasedatetime-CheckStatus"
+    },
+    "m365-2-1-UpdateBasedatetime-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.UpdateBasedatetimeResult.Payload",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.UpdateBasedatetimeResult.Payload",
+              "IsString": true
+            },
+            {
+              "Variable": "$.UpdateBasedatetimeResult.Payload",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-2-1-UpdateBasedatetime-BusinessFailed"
+        }
+      ],
+      "Default": "m365-2-1-UpdateBasedatetime-Success"
+    },
+    "m365-2-1-UpdateBasedatetime-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "UpdateBasedatetime returned status=failed"
+    },
+    "m365-2-1-UpdateBasedatetime-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "UpdateBasedatetime failed with an exception/timeout"
+    },
+    "m365-2-1-UpdateBasedatetime-Success": {
+      "Type": "Succeed"
+    }
+  }
+}

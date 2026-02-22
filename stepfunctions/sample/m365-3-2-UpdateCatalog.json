@@ -1,0 +1,94 @@
+{
+  "Comment": "m365-3-2-UpdateCatalog State Machine groups",
+  "StartAt": "m365-3-2-UpdateCatalog",
+  "States": {
+    "m365-3-2-UpdateCatalog": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "Parameters": {
+        "LaunchType": "FARGATE",
+        "Cluster": "arn:aws:ecs:ap-northeast-1:XXXXXXXXXX:cluster/m365_M365Conatainer",
+        "TaskDefinition": "m365_M365Container-M365CatalogUpdate",
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "m365catalogupdate",
+              "Environment": [
+                {
+                  "Name": "GROUP",
+                  "Value.$": "$.group"
+                }
+              ]
+            }
+          ]
+        },
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": [
+              "XXXXXXXXXXXX"
+            ],
+            "SecurityGroups": [
+              "XXXXXXXXXXXX"
+            ],
+            "AssignPublicIp": "DISABLED"
+          }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.UpdateCatalogError",
+          "Next": "m365-3-2-UpdateCatalog-HandleError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "ResultPath": "$.UpdateCatalogResult",
+      "Next": "m365-3-2-UpdateCatalog-Success"
+    },
+    "m365-3-2-UpdateCatalog-HandleError": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.UpdateCatalogError.Cause",
+              "StringMatches": "*ExitCode*1*"
+            },
+            {
+              "Variable": "$.UpdateCatalogError.Cause",
+              "StringMatches": "*exitCode*1*"
+            }
+          ],
+          "Next": "m365-3-2-UpdateCatalog-BusinessFailed"
+        }
+      ],
+      "Default": "m365-3-2-UpdateCatalog-SystemError"
+    },
+    "m365-3-2-UpdateCatalog-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "UpdateCatalog business failure"
+    },
+    "m365-3-2-UpdateCatalog-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "UpdateCatalog failed with an exception/timeout"
+    },
+    "m365-3-2-UpdateCatalog-Success": {
+      "Type": "Succeed"
+    }
+  }
+}

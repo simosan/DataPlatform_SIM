@@ -1,0 +1,68 @@
+{
+  "Comment": "m365 Data acquisition and processing State Machine groups for group1",
+  "StartAt": "Parallel",
+  "States": {
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "m365-4-m365getuser",
+          "States": {
+            "m365-4-m365getuser": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::states:startExecution.sync",
+              "Parameters": {
+                "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-m365getuser",
+                "Input.$": "$"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "m365-4-m365getgroup",
+          "States": {
+            "m365-4-m365getgroup": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::states:startExecution.sync",
+              "Parameters": {
+                "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-m365getgroup",
+                "Input.$": "$"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "m365-4-athenabillingmetrics",
+          "States": {
+            "m365-4-athenabillingmetrics": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::states:startExecution.sync",
+              "Parameters": {
+                "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-athenabillingmetrics",
+                "Input.$": "$"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "m365-4-athenaqueryhistory",
+          "States": {
+            "m365-4-athenaqueryhistory": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::states:startExecution.sync",
+              "Parameters": {
+                "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-athenaqueryhistory",
+                "Input.$": "$"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "End": true
+    }
+  }
+}

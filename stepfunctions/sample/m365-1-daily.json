@@ -1,0 +1,36 @@
+{
+  "Comment": "m365 Daily VPC State Machine",
+  "StartAt": "m365-2-1-UpdateBasedatetime",
+  "States": {
+    "m365-2-1-UpdateBasedatetime": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-2-1-UpdateBasedatetime",
+        "Input": {
+          "cycle": "daily"
+        }
+      },
+      "Next": "m365-2-2-group1"
+    },
+    "m365-2-2-group1": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-2-2-group1",
+        "Input": {
+          "group": "group1"
+        }
+      },
+      "Next": "m365-2-3-UpdateDitionary"
+    },
+    "m365-2-3-UpdateDitionary": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-2-3-UpdateDitionary"
+      },
+      "End": true
+    }
+  }
+}

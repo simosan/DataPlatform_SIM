@@ -1,0 +1,90 @@
+{
+  "Comment": "m365-group1 VPC State Machine",
+  "StartAt": "m365-3-1-ColConvDomain-group1",
+  "States": {
+    "m365-3-1-ColConvDomain-group1": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-3-1-ColConvDomain-group1",
+        "Input.$": "$"
+      },
+      "ResultPath": "$.ColConvDomainExecution",
+      "Next": "m365-3-2-UpdateCatalog"
+    },
+    "m365-3-2-UpdateCatalog": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::states:startExecution.sync",
+      "Parameters": {
+        "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-3-2-UpdateCatalog",
+        "Input.$": "$"
+      },
+      "ResultPath": "$.UpdateCatalogExecution",
+      "Next": "Parallel"
+    },
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "m365-3-3-UpdateType",
+          "States": {
+            "m365-3-3-UpdateType": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "m365-3-3-CheckDataQuality",
+          "States": {
+            "m365-3-3-CheckDataQuality": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::ecs:runTask.sync",
+              "Parameters": {
+                "LaunchType": "FARGATE",
+                "Cluster": "arn:aws:ecs:ap-northeast-1:XXXXXXXXXX:cluster/m365_M365Conatainer",
+                "TaskDefinition": "m365_M365Container-M365DataQuality",
+                "Overrides": {
+                  "ContainerOverrides": [
+                    {
+                      "Name": "dataquality",
+                      "Environment": [
+                        {
+                          "Name": "GROUP",
+                          "Value.$": "$.group"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "NetworkConfiguration": {
+                  "AwsvpcConfiguration": {
+                    "Subnets": [
+                      "XXXXXXXXXXXX"
+                    ],
+                    "SecurityGroups": [
+                      "XXXXXXXXXXXX"
+                    ],
+                    "AssignPublicIp": "DISABLED"
+                  }
+                }
+              },
+              "TimeoutSeconds": 900,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "m365-3-3-DataGarbage",
+          "States": {
+            "m365-3-3-DataGarbage": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        }
+      ],
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "Comment": "m365-4-athenaqueryhistory Data acquisition and processing State Machine groups",
+  "StartAt": "m365-Collect-athenaqueryhistory",
+  "States": {
+    "m365-Collect-athenaqueryhistory": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:m365AthenaQueryHistoryColVpc:$LATEST",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.CollectError",
+          "Next": "m365-Collect-athenaqueryhistory-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "ResultPath": "$.CollectResult",
+      "Next": "m365-Collect-athenaqueryhistory-CheckStatus"
+    },
+    "m365-Collect-athenaqueryhistory-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.CollectResult.Payload",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.CollectResult.Payload",
+              "IsString": true
+            },
+            {
+              "Variable": "$.CollectResult.Payload",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-Collect-athenaqueryhistory-BusinessFailed"
+        }
+      ],
+      "Default": "m365-Convert-athenaqueryhistory"
+    },
+    "m365-Collect-athenaqueryhistory-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Collect Lambda returned status=failed"
+    },
+    "m365-Collect-athenaqueryhistory-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Collect Lambda failed with an exception/timeout"
+    },
+    "m365-Convert-athenaqueryhistory": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:m365AthenaQueryHistoryConvVpc:$LATEST",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ConvertError",
+          "Next": "m365-Convert-athenaqueryhistory-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "OutputPath": "$.Payload",
+      "Next": "m365-Convert-athenaqueryhistory-CheckStatus"
+    },
+    "m365-Convert-athenaqueryhistory-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$",
+              "IsString": true
+            },
+            {
+              "Variable": "$",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-Convert-athenaqueryhistory-BusinessFailed"
+        }
+      ],
+      "Default": "m365-Convert-athenaqueryhistory-Success"
+    },
+    "m365-Convert-athenaqueryhistory-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Convert Lambda returned status=failed"
+    },
+    "m365-Convert-athenaqueryhistory-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Convert Lambda failed with an exception/timeout"
+    },
+    "m365-Convert-athenaqueryhistory-Success": {
+      "Type": "Succeed"
+    }
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "Comment": "m365-4-m365getgroup Data acquisition and processing State Machine groups",
+  "StartAt": "m365-Collect-m365getgroup",
+  "States": {
+    "m365-Collect-m365getgroup": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:M365GetGroupVpc:$LATEST",
+        "Payload": {
+          "group.$": "$.group"
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.CollectError",
+          "Next": "m365-Collect-m365getgroup-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "ResultPath": "$.CollectResult",
+      "Next": "m365-Collect-m365getgroup-CheckStatus"
+    },
+    "m365-Collect-m365getgroup-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.CollectResult.Payload",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.CollectResult.Payload",
+              "IsString": true
+            },
+            {
+              "Variable": "$.CollectResult.Payload",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-Collect-m365getgroup-BusinessFailed"
+        }
+      ],
+      "Default": "m365-Convert-m365convgroup"
+    },
+    "m365-Collect-m365getgroup-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Collect Lambda returned status=failed"
+    },
+    "m365-Collect-m365getgroup-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Collect Lambda failed with an exception/timeout"
+    },
+    "m365-Convert-m365convgroup": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:m365convgroupVpc:$LATEST",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ConvertError",
+          "Next": "m365-Convert-m365convgroup-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "OutputPath": "$.Payload",
+      "Next": "m365-Convert-m365convgroup-CheckStatus"
+    },
+    "m365-Convert-m365convgroup-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$",
+              "IsString": true
+            },
+            {
+              "Variable": "$",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-Convert-m365convgroup-BusinessFailed"
+        }
+      ],
+      "Default": "m365-Convert-m365convgroup-Success"
+    },
+    "m365-Convert-m365convgroup-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Convert Lambda returned status=failed"
+    },
+    "m365-Convert-m365convgroup-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Convert Lambda failed with an exception/timeout"
+    },
+    "m365-Convert-m365convgroup-Success": {
+      "Type": "Succeed"
+    }
+  }
+}

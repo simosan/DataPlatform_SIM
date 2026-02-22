@@ -1,9 +1,0 @@
-{
-  "database": "m365",
-  "table": "m365getgroup",
-  "ruleset_name": "m365getgroup_ruleset",
-  "rules": [
-    "ColumnExists \"displayname\"",
-    "ColumnExists \"description\""
-  ]
-}

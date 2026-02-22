@@ -1,0 +1,10 @@
+{
+  "Comment": "GlueTable Type Update VPC State Machine",
+  "StartAt": "m365-3-3-UpdateType",
+  "States": {
+    "m365-3-3-UpdateType": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}

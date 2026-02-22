@@ -4,7 +4,9 @@ localstack/
 glue/
 work/
 ssm/
-stepfunctions/
+stepfunctions/notvpc/
+stepfunctions/vpc/
+stepfunctions/command.txt
 *output.json
 powershell/pwsh_layer/
 powershell/ECS-Build-Work_M365GetUserContainer/

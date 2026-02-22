@@ -27,23 +27,41 @@ import re
 from datetime import datetime, timedelta, timezone, date
 from decimal import Decimal, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
+import pandas as pd
+from io import StringIO
 
 JST = ZoneInfo("Asia/Tokyo")
 
 # Athenaのクエリ実行時間はJSTで指定された基準日（basedate）に基づいて、UTCの開始日時と終了日時を計算する必要がある。
-# naの場合は基準日を昨日に設定する。基準日が指定された場合は、その日付を基準にする。
-# 取得データをS3に書き込む際に使用する基準日とは用途が異なることに注意。
-# S3の基準日はファイルの保存先を決めるためのもので、Athenaクエリ履歴の取得期間を決めるものではない。
-def _resolve_base_date(basedate: str) -> date:
+# naの場合は基準日ファイルをS3から取得する。ここで取得する基準日とS3に書き込む際に使用する基準日は用途が異なることに注意。
+# S3に出力する基準日は、M365CollectS3Export関数でファイルの保存先を決めるためのもので、Athenaクエリ履歴の取得期間を決めるものではない。
+def _resolve_base_date(basedate: str, session: boto3.Session) -> date:
     if basedate == "na":
-        return datetime.now(JST).date() - timedelta(days=1)
-    return datetime.strptime(basedate, "%Y-%m-%d").date()
+        # 基準日ファイルから基準日を取得する
+        ssm = session.client('ssm')
+        bucket_name = ssm.get_parameter(Name='/m365/common/s3bucket',
+                                    WithDecryption=False)['Parameter']['Value']
+        s3_client = session.client('s3')
+        try:
+            csv_file = s3_client.get_object(
+                Bucket=bucket_name,
+                Key="basedatetime/basedatetime.csv"
+            )
+            csv_file_body = csv_file['Body'].read().decode('utf-8')
+            df = pd.read_csv(StringIO(csv_file_body), usecols=['base'])
+            base_date_str = df['base'].iloc[0]
+            return datetime.strptime(base_date_str, "%Y-%m-%d").date()
+        except Exception as e:
+            print(f"[Func-ERROR]-[_resolve_base_date]-[S3ReadError] 基準日ファイル取得エラー: {e}")
+            raise
+    else:
+        return datetime.strptime(basedate, "%Y-%m-%d").date()
 
 
-def _resolve_time_range(basedate: str) -> tuple[datetime, datetime, date]:
+def _resolve_time_range(basedate: str, session: boto3.Session) -> tuple[datetime, datetime, date]:
     # basedate を基準に JST の 00:00 -> 翌 00:00 の期間を UTC に変換して返す
     # UTC変換後の日時はAthena呼び出しに使用する
-    base_date_jst = _resolve_base_date(basedate)
+    base_date_jst = _resolve_base_date(basedate, session)
     start_jst = datetime(base_date_jst.year, base_date_jst.month, base_date_jst.day, \
                         0, 0, 0, tzinfo=JST)
     end_jst = start_jst + timedelta(days=1)
@@ -168,7 +186,11 @@ def get_athena_query_history(event, context):
         return json.dumps({ "status": "failed" })
 
     # 基準日からUTCの開始日時、終了日時を計算する
-    start_utc, end_utc, base_date_jst = _resolve_time_range(basedate)
+    try:
+        start_utc, end_utc, base_date_jst = _resolve_time_range(basedate, session)
+    except Exception as e:
+        print(f"[Func-ERROR]-[get_athena_query_history] 基準日変換処理エラー: {e}")
+        return json.dumps({ "status": "failed" })
 
     # na の場合は欠落させる仕様（出力先Lambda側でチェック,設定）
     fromtimestamp = None

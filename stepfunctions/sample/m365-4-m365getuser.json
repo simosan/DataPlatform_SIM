@@ -1,0 +1,170 @@
+{
+  "Comment": "m365getuser Data acquisition and processing State Machine groups",
+  "StartAt": "m365-Collect-m365getuser",
+  "States": {
+    "m365-Collect-m365getuser": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::ecs:runTask.sync",
+      "Parameters": {
+        "LaunchType": "FARGATE",
+        "Cluster": "arn:aws:ecs:ap-northeast-1:XXXXXXXXXX:cluster/m365_M365Conatainer",
+        "TaskDefinition": "MKECS_M365Container-M365GetUser",
+        "Overrides": {
+          "ContainerOverrides": [
+            {
+              "Name": "m365getuser",
+              "Environment": [
+                {
+                  "Name": "GROUP",
+                  "Value.$": "$.group"
+                },
+                {
+                  "Name": "HTTP_PROXY",
+                  "Value": "http://simsquid-sd.simosan-sd-proxy.com:58080"
+                },
+                {
+                  "Name": "HTTPS_PROXY",
+                  "Value": "http://simsquid-sd.simosan-sd-proxy.com:58080"
+                },
+                {
+                  "Name": "NO_PROXY",
+                  "Value": "127.0.0.1,localhost,169.254.169.254,169.254.170.2,s3.ap-northeast-1.amazonaws.com,.s3.ap-northeast-1.amazonaws.com"
+                }
+              ]
+            }
+          ]
+        },
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "Subnets": [
+              "XXXXXXXXXXXX"
+            ],
+            "SecurityGroups": [
+              "XXXXXXXXXXXX"
+            ],
+            "AssignPublicIp": "DISABLED"
+          }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.CollectError",
+          "Next": "m365-Collect-m365getuser-HandleError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "ResultPath": "$.CollectResult",
+      "Next": "m365-Convert-m365convuser"
+    },
+    "m365-Collect-m365getuser-HandleError": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Or": [
+            {
+              "Variable": "$.CollectError.Cause",
+              "StringMatches": "*ExitCode*1*"
+            },
+            {
+              "Variable": "$.CollectError.Cause",
+              "StringMatches": "*exitCode*1*"
+            }
+          ],
+          "Next": "m365-Collect-m365getuser-BusinessFailed"
+        }
+      ],
+      "Default": "m365-Collect-m365getuser-SystemError"
+    },
+    "m365-Collect-m365getuser-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Collect task business failure"
+    },
+    "m365-Collect-m365getuser-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Collect task failed with an exception/timeout"
+    },
+    "m365-Convert-m365convuser": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:m365convuserVpc:$LATEST",
+        "Payload.$": "$"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.ConvertError",
+          "Next": "m365-Convert-m365convuser-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "OutputPath": "$.Payload",
+      "Next": "m365-Convert-m365convuser-CheckStatus"
+    },
+    "m365-Convert-m365convuser-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$",
+              "IsString": true
+            },
+            {
+              "Variable": "$",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-Convert-m365convuser-BusinessFailed"
+        }
+      ],
+      "Default": "m365-Convert-m365convuser-Success"
+    },
+    "m365-Convert-m365convuser-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Convert Lambda returned status=failed"
+    },
+    "m365-Convert-m365convuser-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Convert Lambda failed with an exception/timeout"
+    },
+    "m365-Convert-m365convuser-Success": {
+      "Type": "Succeed"
+    }
+  }
+}
