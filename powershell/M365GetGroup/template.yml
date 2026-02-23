@@ -73,4 +73,7 @@ Resources:
         - !Ref AWS::NoValue
       Architectures:
         - arm64
+      Tags:
+        Project: M365
+        Application: !Ref FunctionName
 
