@@ -3,8 +3,70 @@
   "StartAt": "m365-3-3-UpdateType",
   "States": {
     "m365-3-3-UpdateType": {
-      "Type": "Pass",
-      "End": true
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:UpdateTypeVpc:$LATEST"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.UpdateTypeError",
+          "Next": "m365-3-3-UpdateType-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+                  "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 10
+        }
+      ],
+      "TimeoutSeconds": 900,
+      "ResultPath": "$.UpdateTypeResult",
+      "Next": "m365-3-3-UpdateType-CheckStatus"
+    },
+    "m365-3-3-UpdateType-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.UpdateTypeResult.Payload",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.UpdateTypeResult.Payload",
+              "IsString": true
+            },
+            {
+              "Variable": "$.UpdateTypeResult.Payload",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-3-3-UpdateType-BusinessFailed"
+        }
+      ],
+      "Default": "m365-3-3-UpdateType-Success"
+    },
+    "m365-3-3-UpdateType-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "UpdateType returned status=failed"
+    },
+    "m365-3-3-UpdateType-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "UpdateType failed with an exception/timeout"
+    },
+    "m365-3-3-UpdateType-Success": {
+      "Type": "Succeed"
     }
   }
 }

@@ -43,7 +43,6 @@ def basedatetimeupdate(event, context):
         JST = pytz.timezone('Asia/Tokyo')
         #dt = datetime.date.today()
         dt = datetime.now(JST).date()
-        #basedate = dt - datetime.timedelta(days=1)
         basedate = dt - timedelta(days=1)
         basedate = basedate.strftime("%Y-%m-%d")
         df['base'] = basedate

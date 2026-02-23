@@ -246,6 +246,3 @@ function M365GetUserDocker {
 
     return @{ status = "success" } | ConvertTo-Json -Compress
 }
-
-## Entry Point
-M365GetUserDocker -CommandInput $CommandInput

@@ -1,0 +1,74 @@
+[
+  {
+    "database": "m365",
+    "table": "m365getuser",
+    "columns": {
+      "id": "string",
+      "userprincipalname": "string",
+      "surname": "string",
+      "givenname": "string",
+      "displayname": "string",
+      "base_date": "date",
+      "from_datetime": "timestamp",
+      "to_datetime": "timestamp",
+      "acquired_date": "date",
+      "date": "string"
+    }
+  },
+  {
+    "database": "m365",
+    "table": "m365getgroup",
+    "columns": {
+      "id": "string",
+      "description": "string",
+      "displayname": "string",
+      "securityidentifier": "string",
+      "base_date": "date",
+      "from_datetime": "timestamp",
+      "to_datetime": "timestamp",
+      "acquired_date": "date",
+      "securityidentifier2": "string",
+      "securityidentifier3": "string"
+    }
+  },
+  {
+    "database": "m365",
+    "table": "athenabillingmetrics",
+    "columns": {
+      "workgroup": "string",
+      "period_seconds": "bigint",
+      "start_utc": "string",
+      "end_utc": "string",
+      "consumed_bytes_per_workgroup": "bigint",
+      "consumed_tb_per_workgroup": "double",
+      "usd_per_tb": "double",
+      "usd": "string",
+      "base_date": "date",
+      "from_datetime": "timestamp",
+      "to_datetime": "timestamp",
+      "acquired_date": "date"
+    }
+  },
+  {
+    "database": "m365",
+    "table": "athenaqueryhistory",
+    "columns": {
+      "queryexecutionid": "string",
+      "query": "string",
+      "status": "string",
+      "submissiontime": "string",
+      "completiontime": "string",
+      "workgroup": "string",
+      "database": "string",
+      "catalog": "string",
+      "bytesscanned": "bigint",
+      "executiontimemillis": "bigint",
+      "engineexecutiontimemillis": "bigint",
+      "engineversion": "string",
+      "base_date": "date",
+      "from_datetime": "timestamp",
+      "to_datetime": "timestamp",
+      "acquired_date": "date"
+    }
+  }
+]

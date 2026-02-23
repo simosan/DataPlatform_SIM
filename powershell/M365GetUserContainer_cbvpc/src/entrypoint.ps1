@@ -44,7 +44,8 @@ try {
     $inputJson = $inputpath | ConvertTo-Json -Compress
     Write-Host "[Debug]-[entrypoint] GROUP='$($env:GROUP)'"
     Write-Host "[Debug]-[entrypoint] CommandInput=$inputJson"
-    $rtnmsg = & $localPath -CommandInput $inputJson
+    . $localPath
+    $rtnmsg = M365GetUserDocker -CommandInput $inputJson
 } catch {
     Write-Error "Script threw an exception: $_"
     exit 1

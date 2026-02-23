@@ -25,7 +25,7 @@
           "ErrorEquals": [
                   "States.ALL"
           ],
-          "BackoffRate": 2,
+          "BackoffRate": 1,
           "JitterStrategy": "FULL",
           "IntervalSeconds": 5,
           "MaxAttempts": 10

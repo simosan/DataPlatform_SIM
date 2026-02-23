@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: aws-lambda-python-updatetype-runtime
+
+Parameters:
+  isVPC:
+    Description: "Deploy Lambda in VPC (true/false)."
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+  LayerName:
+    Description: "Input lambda layer name."
+    Type: String
+    Default: "SimPythonRuntimeLayer"
+  LayerVersion:
+    Description: "Input lambda layer version."
+    Type: Number
+    Default: 10
+  LambdaRole:
+    Type: String
+    Description: IAM Role ARN for Lambda functions
+  FunctionName:
+    Type: String
+    Description: "Input Lambda function name."
+
+  VpcSubnetIds:
+    Description: "Subnet IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+  VpcSecurityGroupIds:
+    Description: "Security Group IDs for Lambda VpcConfig (used only when isVPC=true)."
+    Type: CommaDelimitedList
+    Default: ""
+Conditions:
+  UseVPC: !Equals [!Ref isVPC, "true"]
+
+Resources:
+  ##########################################################################
+  # Lambda関数（型更新関数）
+  ##########################################################################
+  UpdateTypeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      PackageType: Zip
+      Handler: updatetype.updatetype
+      Runtime: python3.13
+      CodeUri: ./
+      EphemeralStorage:
+        Size: 10240
+      Layers:
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${LayerName}:${LayerVersion}"
+      Timeout: 900
+      MemorySize: 512
+      Role: !Ref LambdaRole
+      VpcConfig: !If
+        - UseVPC
+        - SubnetIds: !Ref VpcSubnetIds
+          SecurityGroupIds: !Ref VpcSecurityGroupIds
+        - !Ref AWS::NoValue
+      Architectures:
+        - arm64
