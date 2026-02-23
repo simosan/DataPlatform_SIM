@@ -38,11 +38,26 @@ try {
         Write-Error "GROUP environment variable is empty."
         exit 1
     }
-    $inputpath = [PSCustomObject]@{
-        group = $env:GROUP
+
+    # basedate, fromtimestamp, totimestamp の3つの環境変数が全て揃っている場合（ECSタスクコマンド起動）は引数JSONに含める。
+    # そうでない場合はgroupのみのJSONを渡す。
+    if ( $null -ne $env:basedate -and $null -ne $env:fromtimestamp -and $null -ne $env:totimestamp ) {
+        Write-Host "[Debug]-[entrypoint] GROUP='$($env:GROUP)'"
+        Write-Host "[Debug]-[entrypoint] basedate='$($env:basedate)', fromtimestamp='$($env:fromtimestamp)', totimestamp='$($env:totimestamp)'"
+        $inputpath = [PSCustomObject]@{
+            group = $env:GROUP
+            basedate = $env:basedate
+            fromtimestamp = $env:fromtimestamp
+            totimestamp = $env:totimestamp
+        }
+    } else {
+        Write-Host "[Debug]-[entrypoint] GROUP='$($env:GROUP)'"
+        $inputpath = [PSCustomObject]@{
+            group = $env:GROUP
+        }
     }
+
     $inputJson = $inputpath | ConvertTo-Json -Compress
-    Write-Host "[Debug]-[entrypoint] GROUP='$($env:GROUP)'"
     Write-Host "[Debug]-[entrypoint] CommandInput=$inputJson"
     . $localPath
     $rtnmsg = M365GetUserDocker -CommandInput $inputJson
