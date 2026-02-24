@@ -119,7 +119,8 @@ function M365GetUserDocker {
         $totimestamp   = $null
     }else{
         if ($CommandInput.basedate -notmatch '^\d{4}-\d{2}-\d{2}$') {
-            throw "[Func-Error]-[M365GetUser]-[InvalidInput] basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。"
+            Write-Host "[Func-Error]-[M365GetUser]-[InvalidInput] basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。"
+            return @{ status = "failed"} | ConvertTo-Json -Compress
         }
         $basedate = $CommandInput.basedate
         $fromtimestamp = $CommandInput.fromtimestamp
@@ -144,9 +145,14 @@ function M365GetUserDocker {
         Write-Host "[Func-Error]-[M365GetUser]-[InvalidInput] groupが指定されていません。"
         return @{ status = "failed"} | ConvertTo-Json -Compress
     }
-    CallM365CollectS3KeyDelete -targetdataname $targetdataname `
-                               -group $group `
-                               -basedate $basedate
+    try {
+        CallM365CollectS3KeyDelete -targetdataname $targetdataname `
+                                    -group $group `
+                                    -basedate $basedate
+    } catch {
+        Write-Host "[Func-Error]-[M365GetUser]-[CallM365CollectS3KeyDelete failed] $_"
+        return @{ status = "failed"} | ConvertTo-Json -Compress
+    }
 
     ## ユーザ一覧取得（1000件ずつ取得（ページネーション対応））
     # エンドポイント
