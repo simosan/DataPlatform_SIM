@@ -104,7 +104,8 @@ function M365GetGroup {
         $totimestamp   = $null
     }else{
         if ($LambdaInput.basedate -notmatch '^\d{4}-\d{2}-\d{2}$') {
-            throw "[Func-Error]-[M365GetGroup]-[InvalidInput] basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。"
+            Write-Host "[Func-Error]-[M365GetGroup]-[InvalidInput] basedateの形式が不正です。'yyyy-mm-dd'の形式で指定してください。"
+            return @{ status = "failed"} | ConvertTo-Json -Compress
         }
         $basedate = $LambdaInput.basedate
         $fromtimestamp = $LambdaInput.fromtimestamp
