@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import pytest
 
 # srcディレクトリをパスに追加（pytest実行位置に依存しないように）
@@ -21,8 +22,6 @@ from updatecatalog import (
 def mock_boto3(monkeypatch, tmp_path):
     """boto3 SSM/S3 クライアントをモックし、prevdif経路での S3/Parquet アクセスを無害化"""
     import boto3
-    import pyarrow as pa
-    import pyarrow.parquet as pq
 
     class DummySSM:
         def get_parameter(self, *args, **kwargs):
@@ -48,7 +47,8 @@ def mock_boto3(monkeypatch, tmp_path):
         def get_object(self, Bucket, Key):  # base 日付CSV
             return {"Body": DummyBody(b"base\n2025-01-21\n")}
         def download_file(self, Bucket, Key, Filename):
-            # 最低限の 1 カラム Parquet を生成
+            import pyarrow as pa
+            import pyarrow.parquet as pq
             table = pa.Table.from_pydict({"id": [1]})
             pq.write_table(table, Filename)
 
@@ -92,72 +92,63 @@ def mock_boto3(monkeypatch, tmp_path):
 
     monkeypatch.setattr(boto3, 'client', _client)
 
-# GROUP環境変数を設定していない異常系テスト
-def test_missing_exec_type_exits(monkeypatch):
-    monkeypatch.delenv('GROUP', raising=False)  # GROUPは先に評価されるため削除
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({}, None)
-    assert e.value.code == 255
-
-# 実行種別が不正な場合の異常系テスト
-def test_invalid_exec_type_exits(monkeypatch):
-    monkeypatch.setenv('GROUP', 'group1')
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'WRONG'}, None)
-    assert e.value.code == 255
-
-# specdifで基準日が未設定,かつテーブルが未設定の場合の異常系テスト
-def test_specdif_missing_targetday_exits(monkeypatch):
-    monkeypatch.setenv('GROUP', 'group1')
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'specdif'}, None)
-    assert e.value.code == 255
-
-# specdifで基準日の形式が不正な場合の異常系テスト（yyyymmdd形式でない）
-def test_specdif_bad_format_exits(monkeypatch):
-    monkeypatch.setenv('GROUP', 'group1')
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '2025/01/01'}, None)
-    assert e.value.code == 255
-    with pytest.raises(SystemExit) as e2:
-        updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '202501'}, None)
-    assert e2.value.code == 255
-    with pytest.raises(SystemExit) as e3:
-        updatecatalog({'exec_type': 'specdif', 'specdif_targetday': 'abcdefgh'}, None)
-    assert e3.value.code == 255
-
-# specdifで基準日の値が不正な場合の異常系テスト（存在しない日付）
-def test_specdif_invalid_date_exits(monkeypatch):
-    monkeypatch.setenv('GROUP', 'group1')
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '20250230'}, None)
-    assert e.value.code == 255
-
-# specdifでテーブルが未設定の場合の異常系テスト
-def test_specdif_missing_targettable_exits(monkeypatch):
-    monkeypatch.setenv('GROUP', 'group1')
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '20250101'}, None)
-    assert e.value.code == 255
-
-# fulscanでテーブルが未設定の場合の異常系テスト
-def test_fulscan_missing_targettable_exits(monkeypatch):
-    monkeypatch.setenv('GROUP', 'group1')
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'fulscan'}, None)
-    assert e.value.code == 255
-
-# GROUP環境変数が未設定の場合の異常系テスト（実行種別は存在）
-def test_missing_group_env_exits(monkeypatch):
+# exec_type が未設定の場合は failed を返す
+def test_missing_exec_type_failed(monkeypatch):
     monkeypatch.delenv('GROUP', raising=False)
-    with pytest.raises(SystemExit) as e:
-        updatecatalog({'exec_type': 'prevdif'}, None)
-    assert e.value.code == 255
+    result = json.loads(updatecatalog({}, None))
+    assert result['status'] == 'failed'
+
+# 実行種別が不正な場合は failed を返す
+def test_invalid_exec_type_failed(monkeypatch):
+    monkeypatch.setenv('GROUP', 'group1')
+    result = json.loads(updatecatalog({'exec_type': 'WRONG'}, None))
+    assert result['status'] == 'failed'
+
+# specdif で specdif_targetday が未設定の場合は failed を返す
+def test_specdif_missing_targetday_failed(monkeypatch):
+    monkeypatch.setenv('GROUP', 'group1')
+    result = json.loads(updatecatalog({'exec_type': 'specdif'}, None))
+    assert result['status'] == 'failed'
+
+# specdif で specdif_targetday の形式が不正な場合は failed を返す（yyyymmdd 以外）
+def test_specdif_bad_format_failed(monkeypatch):
+    monkeypatch.setenv('GROUP', 'group1')
+    r1 = json.loads(updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '2025/01/01'}, None))
+    assert r1['status'] == 'failed'
+    r2 = json.loads(updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '202501'}, None))
+    assert r2['status'] == 'failed'
+    r3 = json.loads(updatecatalog({'exec_type': 'specdif', 'specdif_targetday': 'abcdefgh'}, None))
+    assert r3['status'] == 'failed'
+
+# specdif で specdif_targetday の値が不正な場合は failed を返す（存在しない日付）
+def test_specdif_invalid_date_failed(monkeypatch):
+    monkeypatch.setenv('GROUP', 'group1')
+    result = json.loads(updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '20250230'}, None))
+    assert result['status'] == 'failed'
+
+# specdif で targettable が未設定の場合は failed を返す
+def test_specdif_missing_targettable_failed(monkeypatch):
+    monkeypatch.setenv('GROUP', 'group1')
+    result = json.loads(updatecatalog({'exec_type': 'specdif', 'specdif_targetday': '20250101'}, None))
+    assert result['status'] == 'failed'
+
+# fulscan で targettable が未設定の場合は failed を返す
+def test_fulscan_missing_targettable_failed(monkeypatch):
+    monkeypatch.setenv('GROUP', 'group1')
+    result = json.loads(updatecatalog({'exec_type': 'fulscan'}, None))
+    assert result['status'] == 'failed'
+
+# GROUP環境変数が未設定の場合は failed を返す（実行種別は存在）
+def test_missing_group_env_failed(monkeypatch):
+    monkeypatch.delenv('GROUP', raising=False)
+    result = json.loads(updatecatalog({'exec_type': 'prevdif'}, None))
+    assert result['status'] == 'failed'
 
 # 正常系テストケース(prevdif)
 def test_valid_prevdif(monkeypatch):
     monkeypatch.setenv('GROUP', 'group1')
-    updatecatalog({'exec_type': 'prevdif'}, None)
+    result = json.loads(updatecatalog({'exec_type': 'prevdif'}, None))
+    assert result['status'] == 'success'
 
 def test_catalog_scan_full(monkeypatch):
     """catalog_scan で full_scan=True の場合、全走査ポリシーが適用されること"""
@@ -174,15 +165,17 @@ def test_catalog_scan_incremental(monkeypatch):
 # 正常系テストケース(specdif)
 def test_valid_specdif(monkeypatch):
     monkeypatch.setenv('GROUP', 'group1')
-    updatecatalog({'exec_type': 'specdif',
-                   'specdif_targetday': '20250101',
-                   'targettable': 'table1'}, None)
+    result = json.loads(updatecatalog({'exec_type': 'specdif',
+                                       'specdif_targetday': '20250101',
+                                       'targettable': 'table1'}, None))
+    assert result['status'] == 'success'
 
 # 正常系テストケース(fulscan)
 def test_valid_fulscan(monkeypatch):
     monkeypatch.setenv('GROUP', 'group1')
-    updatecatalog({'exec_type': 'fulscan',
-                   'targettable': 'table1'}, None)
+    result = json.loads(updatecatalog({'exec_type': 'fulscan',
+                                       'targettable': 'table1'}, None))
+    assert result['status'] == 'success'
 
 
 ## tablecolumns_diff_verify のテスト群
@@ -248,8 +241,6 @@ def test_tablecolumns_added_and_missing():
 # 初回実行などで前日(ターゲット)側 Parquet が存在しない場合の挙動
 def test_tablecolumns_missing_target_file(monkeypatch, tmp_path):
     import boto3
-    import pyarrow as pa
-    import pyarrow.parquet as pq
 
     # 既存 autouse フィクスチャの boto3.client を上書きしてターゲット日付のみ欠如を再現
     class DummyS3Missing:
@@ -259,7 +250,8 @@ def test_tablecolumns_missing_target_file(monkeypatch, tmp_path):
             # target_day=20250120 を含むキーなら存在しない想定で例外
             if "date=20250120" in Key:
                 raise Exception("NoSuchKey 404")
-            # 基準日ファイルは 1 カラム Parquet を生成
+            import pyarrow as pa
+            import pyarrow.parquet as pq
             table = pa.Table.from_pydict({"id": [1]})
             pq.write_table(table, Filename)
 
@@ -436,14 +428,6 @@ def test_wait_crawler_completion_timeout(monkeypatch):
 def test_wait_crawler_completion_not_found(monkeypatch):
     """存在しないクローラは state=NOT_FOUND で記録されること"""
     import boto3
-
-    class GlueNotFoundMock:
-        def get_crawler(self, Name):
-            from botocore.exceptions import ClientError
-            raise ClientError(
-                {'Error': {'Code': 'EntityNotFoundException', 'Message': 'Not found'}},
-                'get_crawler'
-            )
 
     # EntityNotFoundException を模擬するため例外属性を追加
     class MockGlueClient:

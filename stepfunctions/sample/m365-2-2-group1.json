@@ -29,7 +29,12 @@
           "StartAt": "m365-3-3-UpdateType",
           "States": {
             "m365-3-3-UpdateType": {
-              "Type": "Pass",
+              "Type": "Task",
+              "Resource": "arn:aws:states:::states:startExecution.sync",
+              "Parameters": {
+                "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-3-3-UpdateType",
+                "Input.$": "$"
+              },
               "End": true
             }
           }

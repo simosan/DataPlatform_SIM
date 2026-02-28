@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.13-slim AS base
 
 # ===== 必要パッケージ (最小構成) =====
 ENV DEBIAN_FRONTEND=noninteractive
@@ -10,7 +10,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # ===== Python ランタイム設定 =====
-ENV PYTHON_VERSION=3.12 \
+ENV PYTHON_VERSION=3.13 \
 	PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
 	PIP_NO_CACHE_DIR=off \

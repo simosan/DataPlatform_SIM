@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=public.ecr.aws/docker/library/python:3.12-slim
+ARG BASE_IMAGE=public.ecr.aws/docker/library/python:3.13-slim
 FROM ${BASE_IMAGE} AS base
 
 # Build-time proxy args (passed from CodeBuild buildspec as --build-arg)
@@ -27,7 +27,7 @@ RUN set -eu; \
  && rm -rf /var/lib/apt/lists/*
 
 # ===== Python ランタイム設定 =====
-ENV PYTHON_VERSION=3.12 \
+ENV PYTHON_VERSION=3.13 \
 	PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
 	PIP_NO_CACHE_DIR=off \
