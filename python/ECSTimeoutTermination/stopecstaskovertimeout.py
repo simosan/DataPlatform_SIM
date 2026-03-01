@@ -125,9 +125,13 @@ def _collect_tasks_over_timeout(ecs_client,
 
         # タスクごとに、監視対象かどうかを判定し、監視対象であればタイムアウト超過しているかを判定する
         for task in running_tasks:
+            print(f"[Debug]-[_collect_tasks_over_timeout] Checking task: {task['taskArn']} "
+                f"mon_task_name={mon_task_name} timeout_seconds={timeout_seconds_int}")
             if not _should_monitor_task(task, mon_task_name):
                 continue
             if _is_task_over_timeout(task, timeout_seconds_int):
+                print(f"[Info]-[_collect_tasks_over_timeout] タスクがタイムアウト超過で停止対象に追加: "
+                    f"taskArn={task['taskArn']} mon_task_name={mon_task_name} timeout_seconds={timeout_seconds_int}")
                 to_stop.add(task["taskArn"])
 
     return sorted(to_stop)
