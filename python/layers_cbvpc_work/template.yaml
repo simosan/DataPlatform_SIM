@@ -11,7 +11,7 @@ Resources:
   PythonLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      Description: Lambda layer with Python 3.13 runtime,Added packaging for pandas, psycopg2-binary, numpy, and pyarrow.
+      Description: Lambda layer with Python 3.13 runtime,Added packaging for pandas, psycopg (binary), numpy, and pyarrow.
       LayerName: !Ref LayerName
       ContentUri: layers/PythonLayer/
       CompatibleRuntimes:

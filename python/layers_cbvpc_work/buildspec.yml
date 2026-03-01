@@ -52,7 +52,8 @@ phases:
   build:
     commands:
       - |
-        set -euo pipefail
+        set -eu
+        (set -o pipefail) 2>/dev/null || true
         # Lambda Layer の中身は layers/PythonLayer/python/ 配下に置く必要がある
         # ここで requirements を Lambda 用に解決して展開する（sdist ビルド回避のため --only-binary を強制）
         echo "Building Lambda layer dependencies..."
@@ -76,7 +77,8 @@ phases:
   post_build:
     commands:
       - |
-        set -euo pipefail
+        set -eu
+        (set -o pipefail) 2>/dev/null || true
         set -x
         if [ "${CODEBUILD_BUILD_SUCCEEDING}" != "1" ]; then
           echo "Build phase failed; skipping deploy."

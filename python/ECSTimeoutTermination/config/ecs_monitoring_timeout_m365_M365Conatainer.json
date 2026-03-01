@@ -1,0 +1,12 @@
+{
+    "m365_M365Conatainer": [
+        {
+            "mon_task_name": "MKECS_M365Container-M365GetUser",
+            "timeout_seconds": 1
+        },
+        {
+            "mon_task_name": "m365_M365Container-M365CatalogUpdate",
+            "timeout_seconds": 1
+        }
+    ]
+}
