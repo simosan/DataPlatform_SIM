@@ -9,5 +9,3 @@ parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxx VpcSecurityGrou
 s3_bucket = ""
 region = ""
 profile = ""
-capabilities = "CAPABILITY_IAM"
-image_repositories = []

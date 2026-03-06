@@ -5,13 +5,6 @@ version = 0.1
 #stack_name = ""
 #s3_prefix = ""
 #parameter_overrides = "isVPC=true ProxyUrl=http://proxy.example.com:8080 VpcSubnetIds=subnet-xxxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionName=M365GetGroupVpc"
-# not-vpc
-stack_name = "sam-pwshfunc-m365getgroup"
-s3_prefix = "tmp/sam-pwshfunc-m365getgroup"
-parameter_overrides = "isVPC=false LambdaRole=arn:aws:iam::xxxxxxxxxxxx:role/sim-lambda-role LayerVersion=7 FunctionName=M365GetGroup"
-
 s3_bucket = ""
 region = ""
 profile = ""
-capabilities = "CAPABILITY_IAM"
-image_repositories = []

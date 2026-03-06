@@ -3,15 +3,8 @@ version = 0.1
 [default.deploy.parameters]
 # vpc
 stack_name = ""
-s3_prefix = ""
-parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerVersion=10 FunctionNameM365cols3import=m365cols3importVpc FunctionNameM365cols3list=m365cols3listVpc FunctionNameBasedatetimeupdate=basedatetimeupdateVpc"
-# not-vpc
-#stack_name = ""
-#s3_prefix = ""
-#parameter_overrides = "isVPC=false LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerVersion=10 FunctionNameM365cols3import=m365cols3importVpc FunctionNameM365cols3list=m365cols3listVpc FunctionNameBasedatetimeupdate=basedatetimeupdateVpc"
-
+parameter_overrides = "isVPC=true VpcSubnetIds=subnet-xxxxxxxxxx VpcSecurityGroupIds=sg-xxxxxxxxxxx LambdaRole=arn:aws:iam::xxxxxxxxxxx:role/sim-lambda-role LayerVersion=12 FunctionNameM365cols3import=m365cols3importVpc FunctionNameM365cols3list=m365cols3listVpc FunctionNameBasedatetimeupdate=basedatetimeupdateVpc"
 s3_bucket = ""
+s3_prefix = ""
 region = ""
 profile = ""
-capabilities = "CAPABILITY_IAM"
-image_repositories = []

@@ -91,7 +91,6 @@ phases:
             --template-file "template.yaml" \
             --stack-name "${STACK_NAME}" \
             --s3-bucket "${SAM_S3_BUCKET}" \
-            --capabilities "CAPABILITY_IAM" \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --region "${AWS_DEFAULT_REGION}"

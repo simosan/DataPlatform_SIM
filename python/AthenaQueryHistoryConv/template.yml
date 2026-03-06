@@ -17,7 +17,6 @@ Parameters:
   LayerVersion:
     Description: "Input lambda layer version."
     Type: Number
-    Default: 10
   LambdaRole:
     Type: String
     Description: IAM Role ARN for Lambda functions
