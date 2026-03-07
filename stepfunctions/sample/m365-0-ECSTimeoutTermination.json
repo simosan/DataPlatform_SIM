@@ -1,0 +1,75 @@
+{
+  "Comment": "m365-0-ECSTimeoutTermination periodically monitors the execution time of ECS tasks and terminates them if they exceed the specified timeout.",
+  "StartAt": "m365-0-ECSTimeoutTermination",
+  "States": {
+    "m365-0-ECSTimeoutTermination": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-northeast-1:XXXXXXXXXX:function:m365StopECStaskOverTimeout:$LATEST",
+        "Payload": {
+          "group.$": "$.group"
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.CollectError",
+          "Next": "m365-0-ECSTimeoutTermination-SystemError"
+        }
+      ],
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "BackoffRate": 1,
+          "JitterStrategy": "FULL",
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3
+        }
+      ],
+      "TimeoutSeconds": 300,
+      "ResultPath": "$.CollectResult",
+      "Next": "m365-0-ECSTimeoutTermination-CheckStatus"
+    },
+    "m365-0-ECSTimeoutTermination-CheckStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.CollectResult.Payload",
+              "IsPresent": true
+            },
+            {
+              "Variable": "$.CollectResult.Payload",
+              "IsString": true
+            },
+            {
+              "Variable": "$.CollectResult.Payload",
+              "StringMatches": "*\"status\"*\"failed\"*"
+            }
+          ],
+          "Next": "m365-0-ECSTimeoutTermination-BusinessFailed"
+        }
+      ],
+      "Default": "m365-0-ECSTimeoutTermination-Success"
+    },
+    "m365-0-ECSTimeoutTermination-BusinessFailed": {
+      "Type": "Fail",
+      "Error": "BusinessFailed",
+      "Cause": "Collect Lambda returned status=failed"
+    },
+    "m365-0-ECSTimeoutTermination-SystemError": {
+      "Type": "Fail",
+      "Error": "StatesError",
+      "Cause": "Collect Lambda failed with an exception/timeout"
+    },
+    "m365-0-ECSTimeoutTermination-Success": {
+      "Type": "Succeed"
+    }
+  }
+}

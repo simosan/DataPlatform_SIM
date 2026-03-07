@@ -80,5 +80,6 @@ Update-StateMachine -Name 'm365-4-m365getuser' -DefinitionFile 'm365-4-m365getus
 Update-StateMachine -Name 'm365-4-m365getgroup' -DefinitionFile 'm365-4-m365getgroup.json'
 Update-StateMachine -Name 'm365-4-athenabillingmetrics' -DefinitionFile 'm365-4-athenabillingmetrics.json'
 Update-StateMachine -Name 'm365-4-athenaqueryhistory' -DefinitionFile 'm365-4-athenaqueryhistory.json'
+Update-StateMachine -Name 'm365-0-ECSTimeoutTermination' -DefinitionFile 'm365-0-ECSTimeoutTermination.json'
 
 Write-Host '[OK] done'
