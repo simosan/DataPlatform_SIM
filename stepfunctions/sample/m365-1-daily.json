@@ -11,6 +11,7 @@
           "cycle": "daily"
         }
       },
+      "ResultPath": null,
       "Next": "m365-2-2-group1"
     },
     "m365-2-2-group1": {
@@ -22,6 +23,7 @@
           "group": "group1"
         }
       },
+      "ResultPath": null,
       "Next": "m365-2-3-UpdateDitionary"
     },
     "m365-2-3-UpdateDitionary": {
@@ -30,6 +32,7 @@
       "Parameters": {
         "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-2-3-UpdateDitionary"
       },
+      "ResultPath": null,
       "End": true
     }
   }

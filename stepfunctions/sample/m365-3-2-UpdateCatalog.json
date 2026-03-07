@@ -39,7 +39,7 @@
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.UpdateCatalogError",
+          "ResultPath": "$.UpdateCatalogResult",
           "Next": "m365-3-2-UpdateCatalog-HandleError"
         }
       ],
@@ -64,11 +64,11 @@
         {
           "Or": [
             {
-              "Variable": "$.UpdateCatalogError.Cause",
+              "Variable": "$.UpdateCatalogResult.Cause",
               "StringMatches": "*ExitCode*1*"
             },
             {
-              "Variable": "$.UpdateCatalogError.Cause",
+              "Variable": "$.UpdateCatalogResult.Cause",
               "StringMatches": "*exitCode*1*"
             }
           ],

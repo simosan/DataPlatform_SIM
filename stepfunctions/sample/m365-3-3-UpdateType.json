@@ -13,7 +13,7 @@
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.UpdateTypeError",
+          "ResultPath": "$.UpdateTypeResult",
           "Next": "m365-3-3-UpdateType-SystemError"
         }
       ],

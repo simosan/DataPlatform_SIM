@@ -15,6 +15,7 @@
                 "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-m365getuser",
                 "Input.$": "$"
               },
+              "ResultPath": "$.m365-4-m365getuserResult",
               "End": true
             }
           }
@@ -29,6 +30,7 @@
                 "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-m365getgroup",
                 "Input.$": "$"
               },
+              "ResultPath": "$.m365getgroupResult",
               "End": true
             }
           }
@@ -43,6 +45,7 @@
                 "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-athenabillingmetrics",
                 "Input.$": "$"
               },
+              "ResultPath": "$.athenabillingmetricsResult",
               "End": true
             }
           }
@@ -57,6 +60,7 @@
                 "StateMachineArn": "arn:aws:states:ap-northeast-1:XXXXXXXXXX:stateMachine:m365-4-athenaqueryhistory",
                 "Input.$": "$"
               },
+              "ResultPath": "$.athenaqueryhistoryResult",
               "End": true
             }
           }

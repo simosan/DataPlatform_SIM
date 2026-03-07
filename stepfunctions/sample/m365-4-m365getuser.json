@@ -127,7 +127,7 @@
         }
       ],
       "TimeoutSeconds": 900,
-      "OutputPath": "$.Payload",
+      "ResultPath": "$.ConvertResult",
       "Next": "m365-Convert-m365convuser-CheckStatus"
     },
     "m365-Convert-m365convuser-CheckStatus": {
@@ -136,15 +136,15 @@
         {
           "And": [
             {
-              "Variable": "$",
+              "Variable": "$.ConvertResult.Payload",
               "IsPresent": true
             },
             {
-              "Variable": "$",
+              "Variable": "$.ConvertResult.Payload",
               "IsString": true
             },
             {
-              "Variable": "$",
+              "Variable": "$.ConvertResult.Payload",
               "StringMatches": "*\"status\"*\"failed\"*"
             }
           ],

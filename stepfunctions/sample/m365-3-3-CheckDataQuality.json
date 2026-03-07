@@ -39,7 +39,7 @@
           "ErrorEquals": [
             "States.ALL"
           ],
-          "ResultPath": "$.CheckDataQualityError",
+          "ResultPath": "$.CheckDataQualityResult",
           "Next": "m365-3-3-CheckDataQuality-HandleError"
         }
       ],
@@ -64,11 +64,11 @@
         {
           "Or": [
             {
-              "Variable": "$.CheckDataQualityError.Cause",
+              "Variable": "$.CheckDataQualityResult.Cause",
               "StringMatches": "*ExitCode*1*"
             },
             {
-              "Variable": "$.CheckDataQualityError.Cause",
+              "Variable": "$.CheckDataQualityResult.Cause",
               "StringMatches": "*exitCode*1*"
             }
           ],

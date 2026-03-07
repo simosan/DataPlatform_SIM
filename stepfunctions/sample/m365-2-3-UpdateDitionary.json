@@ -8,7 +8,7 @@
       "Parameters": {
         "Name": "m365dictionary-crawler"
       },
-      "ResultPath": null,
+      "ResultPath": "$.StartM365DictionaryCrawlerResult",
       "Next": "WaitM365DictionaryCrawler"
     },
     "WaitM365DictionaryCrawler": {
