@@ -4,25 +4,25 @@
   "States": {
     "m365-3-1-CheckPendingFlagFile": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:s3:headObject",
+      "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
       "Parameters": {
         "Bucket": "XXXXXXXXXXXX",
-        "Key": "sf_pending/m365-3-1-ColConvDomain-group1/flg.txt"
+        "Prefix": "sf_pending/m365-3-1-ColConvDomain-group1/flg.txt",
+        "MaxKeys": 1
       },
-      "ResultPath": null,
-      "Catch": [
+      "ResultPath": "$.m365_3_1_pendingFlag",
+      "Next": "m365-3-1-HasPendingFlagFile"
+    },
+    "m365-3-1-HasPendingFlagFile": {
+      "Type": "Choice",
+      "Choices": [
         {
-          "ErrorEquals": [
-            "S3.NoSuchKey",
-            "NoSuchKey",
-            "S3.NotFound",
-            "NotFound"
-          ],
-          "ResultPath": null,
-          "Next": "m365-3-1-ColConvDomain-group1"
+          "Variable": "$.m365_3_1_pendingFlag.KeyCount",
+          "NumericGreaterThan": 0,
+          "Next": "m365-3-1-WaitPendingFlagFile"
         }
       ],
-      "Next": "m365-3-1-WaitPendingFlagFile"
+      "Default": "m365-3-1-ColConvDomain-group1"
     },
     "m365-3-1-WaitPendingFlagFile": {
       "Type": "Wait",
@@ -43,25 +43,25 @@
     },
     "m365-3-2-CheckPendingFlagFile": {
       "Type": "Task",
-      "Resource": "arn:aws:states:::aws-sdk:s3:headObject",
+      "Resource": "arn:aws:states:::aws-sdk:s3:listObjectsV2",
       "Parameters": {
         "Bucket": "XXXXXXXXXXXX",
-        "Key": "sf_pending/m365-3-2-UpdateCatalog/flg.txt"
+        "Prefix": "sf_pending/m365-3-2-UpdateCatalog/flg.txt",
+        "MaxKeys": 1
       },
-      "ResultPath": null,
-      "Catch": [
+      "ResultPath": "$.m365_3_2_pendingFlag",
+      "Next": "m365-3-2-HasPendingFlagFile"
+    },
+    "m365-3-2-HasPendingFlagFile": {
+      "Type": "Choice",
+      "Choices": [
         {
-          "ErrorEquals": [
-            "S3.NoSuchKey",
-            "NoSuchKey",
-            "S3.NotFound",
-            "NotFound"
-          ],
-          "ResultPath": null,
-          "Next": "m365-3-2-UpdateCatalog"
+          "Variable": "$.m365_3_2_pendingFlag.KeyCount",
+          "NumericGreaterThan": 0,
+          "Next": "m365-3-2-WaitPendingFlagFile"
         }
       ],
-      "Next": "m365-3-2-WaitPendingFlagFile"
+      "Default": "m365-3-2-UpdateCatalog"
     },
     "m365-3-2-WaitPendingFlagFile": {
       "Type": "Wait",
