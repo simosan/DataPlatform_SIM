@@ -1,7 +1,34 @@
 {
   "Comment": "m365-group1 VPC State Machine",
-  "StartAt": "m365-3-1-ColConvDomain-group1",
+  "StartAt": "m365-3-1-CheckPendingFlagFile",
   "States": {
+    "m365-3-1-CheckPendingFlagFile": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:headObject",
+      "Parameters": {
+        "Bucket": "XXXXXXXXXXXX",
+        "Key": "sf_pending/m365-3-1-ColConvDomain-group1/flg.txt"
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "S3.NoSuchKey",
+            "NoSuchKey",
+            "S3.NotFound",
+            "NotFound"
+          ],
+          "ResultPath": null,
+          "Next": "m365-3-1-ColConvDomain-group1"
+        }
+      ],
+      "Next": "m365-3-1-WaitPendingFlagFile"
+    },
+    "m365-3-1-WaitPendingFlagFile": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "m365-3-1-CheckPendingFlagFile"
+    },
     "m365-3-1-ColConvDomain-group1": {
       "Type": "Task",
       "Resource": "arn:aws:states:::states:startExecution.sync",
@@ -12,7 +39,34 @@
         }
       },
       "ResultPath": null,
-      "Next": "m365-3-2-UpdateCatalog"
+      "Next": "m365-3-2-CheckPendingFlagFile"
+    },
+    "m365-3-2-CheckPendingFlagFile": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:headObject",
+      "Parameters": {
+        "Bucket": "XXXXXXXXXXXX",
+        "Key": "sf_pending/m365-3-2-UpdateCatalog/flg.txt"
+      },
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "S3.NoSuchKey",
+            "NoSuchKey",
+            "S3.NotFound",
+            "NotFound"
+          ],
+          "ResultPath": null,
+          "Next": "m365-3-2-UpdateCatalog"
+        }
+      ],
+      "Next": "m365-3-2-WaitPendingFlagFile"
+    },
+    "m365-3-2-WaitPendingFlagFile": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "m365-3-2-CheckPendingFlagFile"
     },
     "m365-3-2-UpdateCatalog": {
       "Type": "Task",

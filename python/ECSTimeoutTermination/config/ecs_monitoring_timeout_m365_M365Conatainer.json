@@ -7,6 +7,10 @@
         {
             "mon_task_name": "m365_M365Container-M365CatalogUpdate",
             "timeout_seconds": 30
+        },
+        {
+            "mon_task_name": "m365_M365Container-ecsloop-task",
+            "timeout_seconds": 30
         }
     ]
 }
